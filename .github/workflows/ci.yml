@@ -1,0 +1,30 @@
+# Runs the automated tests and builds the add-on zip on every change, in public,
+# on GitHub's own computers. A green tick on a commit means the tests passed.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the tests
+        run: python3 tests/run_tests.py
+      - name: Build the add-on zip
+        run: python3 tools/build_zip.py
+      - name: Show the zip's checksum
+        run: sha256sum dist/*.zip
+      - name: Keep the zip with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: add-on-zip
+          path: dist/*.zip
