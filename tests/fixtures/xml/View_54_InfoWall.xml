@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includes>
+	<include name="InfoWallMovieLayout">
+		<definition>
+			<control type="group">
+				<control type="image">
+					<left>15</left>
+					<top>-10</top>
+					<width>290</width>
+					<height>415</height>
+					<texture background="true">$INFO[ListItem.Art(poster)]</texture>
+				</control>
+			</control>
+		</definition>
+	</include>
+</includes>

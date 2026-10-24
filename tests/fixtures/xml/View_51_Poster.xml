@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includes>
+	<include name="View_51_Poster">
+		<control type="group">
+			<control type="image">
+				<left>4</left>
+				<top>4</top>
+				<width>476</width>
+				<height>716</height>
+				<texture fallback="DefaultMovies.png" background="true">$VAR[PosterThumbVar]</texture>
+			</control>
+			<control type="image">
+				<left>0</left>
+				<top>0</top>
+				<width>100</width>
+				<height>100</height>
+				<texture>colors/black.png</texture>
+			</control>
+		</control>
+	</include>
+</includes>

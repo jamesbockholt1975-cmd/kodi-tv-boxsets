@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Simplified stand-in for Estuary's Home.xml, used only by the test-suite.
+     It mirrors the structure the patcher relies on; it is NOT Estuary's real file. -->
+<window>
+	<controls>
+		<control type="group">
+			<control type="group" id="5000">
+				<visible>String.IsEqual(Container(9000).ListItem.Property(id),movies)</visible>
+			</control>
+			<control type="group" id="6000">
+				<visible>String.IsEqual(Container(9000).ListItem.Property(id),tvshows)</visible>
+				<control type="grouplist" id="6001">
+					<include content="WidgetListPoster">
+						<param name="content_path" value="videodb://inprogresstvshows"/>
+					</include>
+				</control>
+			</control>
+			<control type="group" id="7000">
+				<visible>String.IsEqual(Container(9000).ListItem.Property(id),music)</visible>
+			</control>
+			<control type="fixedlist" id="9000">
+				<content>
+					<item>
+						<label>$LOCALIZE[342]</label>
+						<onclick>ActivateWindow(Videos,videodb://movies/titles/,return)</onclick>
+						<property name="menu_id">$NUMBER[5000]</property>
+						<thumb>icons/sidemenu/movies.png</thumb>
+						<property name="id">movies</property>
+						<visible>!Skin.HasSetting(HomeMenuNoMovieButton)</visible>
+					</item>
+					<item>
+						<label>$LOCALIZE[20343]</label>
+						<onclick condition="Library.HasContent(tvshows)">ActivateWindow(Videos,videodb://tvshows/titles/,return)</onclick>
+						<property name="menu_id">$NUMBER[6000]</property>
+						<thumb>icons/sidemenu/tv.png</thumb>
+						<property name="id">tvshows</property>
+						<visible>!Skin.HasSetting(HomeMenuNoTVShowButton)</visible>
+					</item>
+					<item>
+						<label>$LOCALIZE[2]</label>
+						<property name="menu_id">$NUMBER[7000]</property>
+						<property name="id">music</property>
+					</item>
+				</content>
+			</control>
+		</control>
+	</controls>
+</window>

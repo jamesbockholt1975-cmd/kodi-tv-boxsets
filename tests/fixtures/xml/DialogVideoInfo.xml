@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<window>
+	<controls>
+		<control type="image">
+			<left>20</left>
+			<top>20</top>
+			<width>186</width>
+			<height>279</height>
+			<texture>$INFO[ListItem.Art(poster)]</texture>
+		</control>
+		<control type="image">
+			<left>50%</left>
+			<top>20</top>
+			<width>186</width>
+			<height>279</height>
+			<texture>$INFO[ListItem.Art(poster)]</texture>
+		</control>
+	</controls>
+</window>

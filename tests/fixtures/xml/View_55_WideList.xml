@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includes>
+	<include name="View_55_WideList">
+		<focusedlayout height="list_item_height">
+			<control type="image">
+				<left>35</left>
+				<centertop>50%</centertop>
+				<width>32</width>
+				<height>32</height>
+				<texture>$VAR[ListWatchedIconVar]</texture>
+			</control>
+			<control type="label">
+				<left>105</left>
+				<label>$VAR[ListLabelVar]</label>
+			</control>
+		</focusedlayout>
+		<itemlayout height="list_item_height">
+			<control type="image">
+				<left>35</left>
+				<centertop>50%</centertop>
+				<width>32</width>
+				<height>32</height>
+				<texture colordiffuse="grey">$VAR[ListWatchedIconVar]</texture>
+			</control>
+			<control type="label">
+				<left>105</left>
+				<label>$VAR[ListLabelVar]</label>
+			</control>
+		</itemlayout>
+	</include>
+</includes>

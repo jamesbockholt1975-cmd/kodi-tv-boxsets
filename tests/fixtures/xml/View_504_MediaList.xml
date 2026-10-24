@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<includes>
+	<include name="View_504_MediaList">
+		<itemlayout height="68">
+			<control type="image">
+				<left>35</left>
+				<top>17</top>
+				<width>32</width>
+				<height>32</height>
+				<texture>$VAR[ListWatchedIconVar]</texture>
+			</control>
+			<control type="label">
+				<left>105</left>
+				<label>$VAR[ListLabelVar]</label>
+			</control>
+		</itemlayout>
+	</include>
+</includes>

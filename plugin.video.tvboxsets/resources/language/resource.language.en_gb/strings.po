@@ -1,0 +1,121 @@
+# Kodi Media Center language file
+# Addon Name: TV Boxsets
+# Addon id: plugin.video.tvboxsets
+# Addon Provider: Frecklesnoot
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.video.tvboxsets\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-15 00:00+0000\n"
+"PO-Revision-Date: 2026-10-15 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: English (UK)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en_GB\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30000"
+msgid "General"
+msgstr ""
+
+msgctxt "#30001"
+msgid "Boxsets"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Automatic backups to keep"
+msgstr ""
+
+msgctxt "#30003"
+msgid "One backup is made on each day you change your boxsets. Older ones are deleted once this many exist."
+msgstr ""
+
+msgctxt "#30004"
+msgid "Show shows that are missing from the library"
+msgstr ""
+
+msgctxt "#30005"
+msgid "Show greyed-out entries for shows that are in a boxset but not in your Kodi library at the moment."
+msgstr ""
+
+msgctxt "#30006"
+msgid "Troubleshooting"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Write extra detail to the Kodi log"
+msgstr ""
+
+msgctxt "#30008"
+msgid "Adds extra [TV Boxsets] lines to kodi.log. Turn on only when asked for help or while testing."
+msgstr ""
+
+msgctxt "#30009"
+msgid "Sort boxsets by"
+msgstr ""
+
+msgctxt "#30010"
+msgid "How the list of boxsets (and the home screen row) is ordered."
+msgstr ""
+
+msgctxt "#30011"
+msgid "Name (A to Z)"
+msgstr ""
+
+msgctxt "#30012"
+msgid "In progress first"
+msgstr ""
+
+msgctxt "#30013"
+msgid "Recently changed"
+msgstr ""
+
+msgctxt "#30014"
+msgid "Kodi tag prefix"
+msgstr ""
+
+msgctxt "#30015"
+msgid "Text put in front of boxset names when they are written as Kodi tags (e.g. 'Boxset:' gives 'Boxset: Marvel'). Only tags starting with this are ever changed."
+msgstr ""
+
+msgctxt "#30016"
+msgid "Display and tags"
+msgstr ""
+
+msgctxt "#30017"
+msgid "Boxsets menu"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Open the Boxsets menu"
+msgstr ""
+
+msgctxt "#30019"
+msgid "Create boxsets, back up, tags, skin setup and diagnostics. The same menu is in the right-click menu of any boxset."
+msgstr ""
+
+msgctxt "#30020"
+msgid "Show a badge on library items that are in a boxset"
+msgstr ""
+
+msgctxt "#30021"
+msgid "Adds a small boxset icon to the posters of shows and movies that are in a boxset. Works in the Estuary (Boxsets) skin copy only."
+msgstr ""
+
+msgctxt "#30022"
+msgid "Keep Kodi tags in step with my boxsets"
+msgstr ""
+
+msgctxt "#30023"
+msgid "Writes tags such as 'Boxset: Marvel' onto the shows and movies in your boxsets, so the Tags row in the video info dialog shows which boxsets an item is in. Only tags starting with the prefix below are ever changed. It writes to your Kodi library, so turn it off if you would rather not."
+msgstr ""
+
+msgctxt "#30024"
+msgid "Show the boxset name next to the badge on posters"
+msgstr ""
+
+msgctxt "#30025"
+msgid "The badge on a poster becomes a small label with the boxset name (or the first name and '+1' if the item is in several). Turn off for the plain round icon. Works in the Estuary (Boxsets) skin copy only."
+msgstr ""
