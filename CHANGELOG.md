@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.2 (alpha)
+- Source and release links: the add-on's information page in Kodi now shows the GitHub repository as its
+  website and source; the README has a tests badge and links; the repository's landing page links to the
+  source. No change to how the add-on works.
+- Release workflow: also works when the release was already created on the GitHub web page (it adds the
+  zip and checksums to it instead of failing), and can be run by hand for an existing tag (Actions >
+  Release > Run workflow). Tested with a pretend `gh` for both cases.
+- Tests: 359 checks.
+
 ## 0.11.1 (alpha)
 - **Fix: stale labels.** Put a show in the wrong boxset, take it out again, and the poster kept showing
   the wrong boxset's label. The picture file on disk was being updated correctly; but Kodi keeps a picture

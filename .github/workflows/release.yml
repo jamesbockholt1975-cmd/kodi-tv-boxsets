@@ -1,21 +1,34 @@
-# When a release is published with a tag such as v0.11.1, GitHub itself runs the tests, builds the
-# add-on zip from that tagged source, and attaches the zip and its SHA256 checksum to the release.
-# So the zip you download from a release is built in public from the code you can read here.
+# When a version tag such as v0.11.2 is pushed (from GitHub Desktop) or created by publishing a release
+# on the web page, GitHub itself runs the tests, builds the add-on zip from that tagged source, and
+# attaches the zip and its SHA256 checksum to the release. So the zip you download from a release is
+# built in public from the code you can read here.
+#
+# It can also be run by hand for a tag that already exists: Actions > Release > Run workflow.
 name: Release
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build the release for, for example v0.11.2"
+        required: true
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -24,8 +37,8 @@ jobs:
       - name: Check the tag matches the add-on version
         run: |
           version=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('plugin.video.tvboxsets/addon.xml').getroot().get('version'))")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "The tag $GITHUB_REF_NAME does not match the add-on version v$version in addon.xml"
+          if [ "v$version" != "$TAG" ]; then
+            echo "The tag $TAG does not match the add-on version v$version in addon.xml"
             exit 1
           fi
       - name: Build the add-on zip
@@ -35,11 +48,16 @@ jobs:
           cd dist
           sha256sum *.zip | tee SHA256SUMS
       - name: Write the release notes
-        run: python3 tools/release_notes.py "${GITHUB_REF_NAME#v}" > release-notes.md
+        run: python3 tools/release_notes.py "${TAG#v}" > release-notes.md
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS \
-            --title "TV Boxsets ${GITHUB_REF_NAME#v} (alpha)" \
-            --notes-file release-notes.md
+          title="TV Boxsets ${TAG#v} (alpha)"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # the release already exists (for example it was published on the web page): add the files to it
+            gh release upload "$TAG" dist/*.zip dist/SHA256SUMS --clobber
+            gh release edit "$TAG" --title "$title" --notes-file release-notes.md
+          else
+            gh release create "$TAG" dist/*.zip dist/SHA256SUMS --title "$title" --notes-file release-notes.md
+          fi

@@ -1,5 +1,9 @@
 # TV Boxsets for Kodi
 
+[![Tests](https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets/actions/workflows/ci.yml)
+**Source:** https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets · **Releases (zips with checksums):** https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets/releases
+
+
 Kodi has "Sets" for movies but nothing equivalent for TV shows. **TV Boxsets** is a
 Kodi add-on (Python 3) that lets you group TV shows from your library into boxsets and
 browse them with artwork in Kodi's native views, with an optional home screen menu item
@@ -126,7 +130,7 @@ problems, switch on *Write extra detail to the Kodi log* in the add-on settings 
   hidden, and there is no code in the zip that is not in this repository.
 - **Tests run in public.** The *Tests* workflow runs `tests/run_tests.py` on every change, on GitHub's own
   computers (see the Actions tab). A green tick on a commit means the tests passed.
-- **Releases are built here.** When a release is published, the *Release* workflow runs the tests, builds
+- **Releases are built here.** When a version tag (such as `v0.11.2`) is pushed or a release is published, the *Release* workflow runs the tests, builds
   the zip from that tagged source with `tools/build_zip.py`, and attaches the zip and a `SHA256SUMS` file to
   the release. You can compare a download with it:
   - Windows (PowerShell): `Get-FileHash plugin.video.tvboxsets-<version>.zip -Algorithm SHA256`
@@ -159,10 +163,8 @@ other Kodi versions and platforms are especially useful; please include relevant
 
 ## Licence
 
-GPL-2.0-or-later (see the SPDX header at the top of each source file). Before publishing,
-add the full licence text as a `LICENSE` file at the repository root.
-
-Copyright (C) 2026 Frecklesnoot
+GPL-2.0-or-later: see the `LICENSE` file, and the SPDX line at the top of each source file.
+Copyright (C) 2026 Frecklesnoot.
 
 ## Credits
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.11.1" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.11.2" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -48,11 +48,16 @@
     <description lang="en_GB">Group TV shows from your Kodi library into boxsets, just like movie sets. Create boxsets, add or remove shows, set custom artwork, track watched progress, and browse them with artwork in the native Kodi views.</description>
     <platform>all</platform>
     <license>GPL-2.0-or-later</license>
+    <website>https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets</website>
+    <source>https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets</source>
     <assets>
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.11.1 (alpha)
+    <news>v0.11.2 (alpha)
+- The source code is now on GitHub (link on this page): tests run on every change and release zips are built there from the tagged source, with checksums
+
+v0.11.1 (alpha)
 - Fix: a boxset label stayed on a poster after the show was removed from that boxset. Kodi kept showing the old picture because its address never changed. Pictures now live in a numbered folder that changes with every update, so labels refresh straight away
 - Existing skin copies need the update once more: Boxsets menu > "Update ... add the home widget and library badges"
 

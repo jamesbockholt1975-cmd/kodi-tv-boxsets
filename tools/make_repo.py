@@ -68,7 +68,7 @@ INDEX_HTML = """<!doctype html>
 <li>Then <b>Add-ons &gt; Install from repository &gt; TV Boxsets Repository</b> to install TV Boxsets.
 Kodi will offer future updates by itself.</li>
 </ol>
-<p>This page exists so the folder can be hosted on drag-and-drop hosts; Kodi only uses
+{source}<p>This page exists so the folder can be hosted on drag-and-drop hosts; Kodi only uses
 <code>addons.xml</code> and the files under <code>zips/</code>.</p>
 </body></html>
 """
@@ -107,7 +107,12 @@ def make_repo(base_url, out_dir, repo_version="1.0.0"):
                 parts.append(strip_declaration(f.read()).strip())
 
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
-        f.write(INDEX_HTML.format(zip=os.path.basename(repo_zip), version=addon_version))
+        source = ""
+        found = re.search(r"<source>([^<]+)</source>", open(os.path.join(addon_src, "addon.xml"), encoding="utf-8").read())
+        if found:
+            source = ('<p>Source code, tests and release zips with checksums: '
+                      '<a href="{0}">{0}</a></p>\n'.format(found.group(1).strip()))
+        f.write(INDEX_HTML.format(zip=os.path.basename(repo_zip), version=addon_version, source=source))
 
     index = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<addons>\n{}\n</addons>\n'.format(
         "\n".join(parts))

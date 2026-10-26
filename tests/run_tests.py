@@ -1024,12 +1024,38 @@ if yaml:
     ok(next(i for i, s in enumerate(rsteps) if "run_tests" in s) < next(i for i, s in enumerate(rsteps) if "build_zip" in s) < next(i for i, s in enumerate(rsteps) if "gh release create" in s), "release order: tests, then build, then publish")
     ok(all(("actions/" in u) for u in [s["uses"] for s in rel["jobs"]["release"]["steps"] if "uses" in s]), "the release job only uses GitHub's own 'actions/' helpers (no third-party code)")
     check = [s["run"] for s in rel["jobs"]["release"]["steps"] if "does not match" in s.get("run", "")][0]
+    publish = [s["run"] for s in rel["jobs"]["release"]["steps"] if "gh release" in s.get("run", "")][0]
+    ok("workflow_dispatch" in rel[True] and rel[True]["workflow_dispatch"]["inputs"]["tag"]["required"], "the release can also be run by hand for an existing tag (Actions > Release > Run workflow)")
+    ok(rel["env"]["TAG"] == "${{ github.event.inputs.tag || github.ref_name }}", "the tag comes from the pushed tag, or from the hand-run box")
     if shutil.which("sh"):
-        env_ok = dict(os.environ, GITHUB_REF_NAME="v" + version)
-        env_bad = dict(os.environ, GITHUB_REF_NAME="v0.0.1")
+        env_ok = dict(os.environ, TAG="v" + version)
+        env_bad = dict(os.environ, TAG="v0.0.1")
         ok(_sp.run(["sh", "-c", check], cwd=REPO, env=env_ok, capture_output=True).returncode == 0 and _sp.run(["sh", "-c", check], cwd=REPO, env=env_bad, capture_output=True).returncode != 0, "the tag-must-match-addon.xml check passes for v%s and fails for a wrong tag" % version)
+        # run the publish step against a pretend `gh`, once for a new release and once for one that already exists
+        shim = os.path.join(ROOT, "gh-shim"); work = os.path.join(ROOT, "gh-work")
+        os.makedirs(shim); os.makedirs(os.path.join(work, "dist"))
+        for n in ("a.zip", "SHA256SUMS"):
+            open(os.path.join(work, "dist", n), "w").write("x")
+        open(os.path.join(work, "release-notes.md"), "w").write("notes")
+        open(os.path.join(shim, "gh"), "w").write('#!/bin/sh\necho "$@" >> "$GH_LOG"\nif [ "$1 $2" = "release view" ]; then [ "$GH_EXISTS" = "1" ]; exit $?; fi\nexit 0\n')
+        os.chmod(os.path.join(shim, "gh"), 0o755)
+        def publish_calls(exists):
+            log = os.path.join(ROOT, "gh-%s.log" % exists)
+            _sp.run(["sh", "-c", publish], cwd=work, capture_output=True, check=True,
+                    env=dict(os.environ, TAG="v" + version, GH_LOG=log, GH_EXISTS=str(exists), PATH=shim + os.pathsep + os.environ["PATH"]))
+            return open(log).read().splitlines()
+        new_calls = publish_calls(0)
+        ok(len(new_calls) == 2 and new_calls[1].startswith("release create v%s " % version) and "dist/a.zip" in new_calls[1] and "--notes-file release-notes.md" in new_calls[1], "a new tag: the release is created with the zip, the checksums and the notes")
+        old_calls = publish_calls(1)
+        ok(len(old_calls) == 3 and old_calls[1].startswith("release upload v%s " % version) and old_calls[1].endswith("--clobber") and old_calls[2].startswith("release edit v%s " % version), "a release that already exists (published on the web page): the files are added to it, not 'create' again, which would fail")
 ok(os.path.exists(os.path.join(REPO, ".github", "ISSUE_TEMPLATE", "bug_report.md")) and "Diagnostics report" in open(os.path.join(REPO, ".github", "ISSUE_TEMPLATE", "bug_report.md")).read(), "bug reports ask for a diagnostics report")
 ok("Don't trust a zip? Check it" in open(os.path.join(REPO, "README.md"), encoding="utf-8").read(), "README explains how to verify a download")
+meta = ET.parse(os.path.join(ADDON, "addon.xml")).getroot().find("extension[@point='xbmc.addon.metadata']")
+src_url = meta.findtext("source")
+ok(_re.match(r"^https://github\.com/[\w-]+/kodi-tv-boxsets$", src_url or "") and meta.findtext("website") == src_url, "the add-on's information page links to the GitHub repository (%s)" % src_url)
+readme_text = open(os.path.join(REPO, "README.md"), encoding="utf-8").read()
+ok(src_url + "/actions/workflows/ci.yml/badge.svg" in readme_text and src_url + "/releases" in readme_text, "README shows the tests badge and links to the releases")
+ok("`LICENSE` file" in readme_text and "add the full licence text" not in readme_text, "README points at the LICENSE file")
 
 print("== packaging: reproducible zip + repository")
 
@@ -1067,6 +1093,7 @@ ok(set(zipfile.ZipFile(os.path.join(repo, "zips/plugin.video.tvboxsets/plugin.vi
    == set(zipfile.ZipFile(out1).namelist()), "repo copy has the same files as the plain build")
 idx = open(os.path.join(repo, "index.html"), encoding="utf-8").read()
 ok("repository.tvboxsets-1.0.0.zip" in idx, "repository folder has a landing page linking the install zip")
+ok(src_url in idx, "the landing page links to the source code")
 bad = subprocess.run([sys.executable, os.path.join(TOOLS, "make_repo.py"), "--base-url", "example.com", "--out", repo + "2"],
                      capture_output=True, text=True)
 ok(bad.returncode != 0, "make_repo.py rejects a base URL without http(s)://")
