@@ -349,6 +349,8 @@ names = [i[0].label for i in items]
 ML = lambda t: t + " [COLOR lightskyblue][Movie][/COLOR]"  # noqa: E731
 ok(names[:3] == ["Alpha", ML("Film One"), ML("Film Two")] and items[0][2] is True, "mixed boxset lists shows and movies A-Z, movies labelled [Movie]")
 ok("[Movie]" not in items[0][0].label, "shows are not labelled")
+mi = items[1][0]
+ok(mi.tag.d.get("Title") == ML("Film One") and mi.props.get("boxset_title") == "Film One", "the title the skin draws carries [Movie]; the real title is kept in a property")
 ok(items[1][2] is False and "action=play_movie&id=10" in items[1][1] and items[1][0].tag.d["MediaType"] == "movie", "movie item plays through the add-on")
 ok(items[2][0].tag.d.get("Playcount") == 1, "watched movie flagged watched")
 xbmc.RPC_LOG.clear(); runq("action=play_movie&id=10")
@@ -671,6 +673,8 @@ ok(plain("one") == ["Alpha"], "a single item has nothing to be placed next to")
 xbmc.INFO["ListItem.DBType"] = "movie"; xbmc.INFO["ListItem.Title"] = "Film One"; xbmc.INFO["ListItem.Year"] = "2012"
 cmdp = run_script("ctx_place.py")
 ok(all(x in cmdp for x in ("action=place", "bid=mv", "media=movie")) and "Film" in cmdp, "Place script hands the right details to the add-on")
+xbmc.INFO["ListItem.Title"] = ML("Film One"); xbmc.INFO["ListItem.Property(boxset_title)"] = "Film One"
+ok("title=Film+One&" in run_script("ctx_place.py") + "&" and "%5B" not in run_script("ctx_move_up.py"), "right-click scripts send the real title, not the labelled one")
 ok(any(i.get("library") == "ctx_place.py" and "boxset_action" in i.findtext("visible") for i in ctx_items), "Place is hidden on placeholder rows")
 
 print("== 'Boxsets...' on a library show or movie")

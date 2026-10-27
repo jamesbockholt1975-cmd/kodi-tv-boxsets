@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.1 (alpha)
+- **Fix: no `[Movie]` label on movies inside a boxset (0.12.0).** Estuary draws a movie's title field, not the
+  list label, so the label was never seen. The title now carries `[Movie]` as well, and the real title is
+  kept in the list item property `boxset_title`, which the right-click scripts (Move, Place, Remove) read,
+  so they keep finding the right entry.
+- Tests: 381 checks.
+
 ## 0.12.0 (alpha)
 - **Movies are labelled inside a boxset.** In a boxset's list a movie now shows `[Movie]` after its title (in
   light blue), including movies that are not in the library at the moment. Only the label changes: the

@@ -21,9 +21,14 @@ def run_plugin(**params):
     xbmc.executebuiltin("RunPlugin(plugin://plugin.video.tvboxsets/?{})".format(urlencode(params)))
 
 
+def current_title():
+    """The highlighted item's real title (movies carry a '[Movie]' tag in the title the skin draws)."""
+    return xbmc.getInfoLabel("ListItem.Property(boxset_title)") or xbmc.getInfoLabel("ListItem.Title")
+
+
 def move(delta):
     run_plugin(action="move", bid=current_bid(),
-               title=xbmc.getInfoLabel("ListItem.Title"),
+               title=current_title(),
                year=xbmc.getInfoLabel("ListItem.Year") or "0",
                media="movie" if xbmc.getInfoLabel("ListItem.DBType") == "movie" else "tvshow",
                delta=delta)
@@ -31,6 +36,6 @@ def move(delta):
 
 def place():
     run_plugin(action="place", bid=current_bid(),
-               title=xbmc.getInfoLabel("ListItem.Title"),
+               title=current_title(),
                year=xbmc.getInfoLabel("ListItem.Year") or "0",
                media="movie" if xbmc.getInfoLabel("ListItem.DBType") == "movie" else "tvshow")

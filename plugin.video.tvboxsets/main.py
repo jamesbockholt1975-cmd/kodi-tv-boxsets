@@ -266,10 +266,11 @@ def open_boxset(bid):
             # Marked as a movie so it stands out among the shows. Only the label changes: the title
             # (which the right-click scripts and Kodi's info use) stays the plain movie title.
             li = xbmcgui.ListItem(label=movie_label(item["title"]))
+            li.setProperty("boxset_title", item["title"])  # the real title, for the right-click scripts
             li.setArt(item.get("art", {}))
             tag = li.getVideoInfoTag()
             tag.setMediaType("movie")
-            tag.setTitle(item["title"])
+            tag.setTitle(movie_label(item["title"]))  # skins draw this one, not the list label
             tag.setPlot(item.get("plot", ""))
             if item.get("year"):
                 tag.setYear(int(item["year"]))
@@ -286,8 +287,9 @@ def open_boxset(bid):
             icon = "DefaultMovies.png" if is_movie else "DefaultTVShows.png"
             li.setArt({"icon": icon, "thumb": icon})
             tag = li.getVideoInfoTag()
+            li.setProperty("boxset_title", ref["title"])
             tag.setMediaType("movie" if is_movie else "tvshow")
-            tag.setTitle(ref["title"])
+            tag.setTitle(ref["title"] + (" [Movie]" if is_movie else ""))
             if ref.get("year"):
                 tag.setYear(int(ref["year"]))
             tag.setPlot("This is in the boxset but isn't in your Kodi library at the "

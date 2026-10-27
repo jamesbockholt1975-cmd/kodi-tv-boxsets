@@ -18,7 +18,7 @@ def notify(message):
 def main():
     path = xbmc.getInfoLabel("Container.FolderPath")
     bid = parse_qs(urlparse(path).query).get("bid", [""])[0]
-    title = xbmc.getInfoLabel("ListItem.Title")
+    title = xbmc.getInfoLabel("ListItem.Property(boxset_title)") or xbmc.getInfoLabel("ListItem.Title")
     is_movie = xbmc.getInfoLabel("ListItem.DBType") == "movie"
     try:
         year = int(xbmc.getInfoLabel("ListItem.Year"))
