@@ -180,7 +180,7 @@ def patch_widget(path):
 # --------------------------------------------------------------------------
 
 BADGE_FILE = "Includes_TvBoxsets.xml"
-BADGE_MARKER = "tvboxsets-badge v4"
+BADGE_MARKER = "tvboxsets-badge v5"
 BADGE_REV_PROPERTY = "tvboxsets_badge_rev"  # the add-on sets this to the current picture folder number
 BADGE_DIR_SPECIAL = ("special://profile/addon_data/plugin.video.tvboxsets/badges/"
                      "r$INFO[Window(Home).Property(" + BADGE_REV_PROPERTY + ")]")
@@ -225,6 +225,31 @@ BADGE_INCLUDE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 \t\t\t\t<aspectratio>keep</aspectratio>
 \t\t\t\t<texture background="true">{dir}/$INFO[ListItem.DBType]_$INFO[ListItem.DBID].png</texture>
 \t\t\t\t<visible>[String.IsEqual(ListItem.DBType,tvshow) | String.IsEqual(ListItem.DBType,movie)] + !String.IsEmpty(ListItem.DBID)</visible>
+\t\t\t</control>
+\t\t</definition>
+\t</include>
+\t<include name="TvBoxsetsMovieTag">
+\t\t<param name="left">10</param>
+\t\t<param name="top">10</param>
+\t\t<definition>
+\t\t\t<control type="group">
+\t\t\t\t<left>$PARAM[left]</left>
+\t\t\t\t<top>$PARAM[top]</top>
+\t\t\t\t<visible>String.IsEqual(ListItem.Property(boxset_movie),true)</visible>
+\t\t\t\t<control type="image">
+\t\t\t\t\t<width>84</width>
+\t\t\t\t\t<height>28</height>
+\t\t\t\t\t<texture colordiffuse="E61E88E5">colors/white.png</texture>
+\t\t\t\t</control>
+\t\t\t\t<control type="label">
+\t\t\t\t\t<width>84</width>
+\t\t\t\t\t<height>28</height>
+\t\t\t\t\t<align>center</align>
+\t\t\t\t\t<aligny>center</aligny>
+\t\t\t\t\t<font>font12</font>
+\t\t\t\t\t<textcolor>FFFFFFFF</textcolor>
+\t\t\t\t\t<label>MOVIE</label>
+\t\t\t\t</control>
 \t\t\t</control>
 \t\t</definition>
 \t</include>
@@ -308,7 +333,7 @@ def patch_badges(xml_dir):
     return placed
 
 
-_OUR_INCLUDE = re.compile(r'\r?\n[ \t]*<include content="TvBoxsets(?:Name|Row)?Badge">.*?</include>', re.S)
+_OUR_INCLUDE = re.compile(r'\r?\n[ \t]*<include content="TvBoxsets(?:(?:Name|Row)?Badge|MovieTag)">.*?</include>', re.S)
 
 
 def _strip_placements(text):
@@ -339,6 +364,8 @@ def _place_posters(text, nl):
         out.append(text[last:m.end()] + nl + _snippet(
             indent, nl, "TvBoxsetsNameBadge", left=left + 10, top=top + 10,
             width=max(60, width - 20), height=height))
+        # a MOVIE tag in the top-right corner (the plugin sets the property only on movies in a boxset)
+        out[-1] += nl + _snippet(indent, nl, "TvBoxsetsMovieTag", left=max(left, left + width - 94), top=top + 10)
         last = m.end()
         count += 1
     return ("".join(out) + text[last:]) if out else text, count

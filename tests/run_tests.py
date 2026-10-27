@@ -351,6 +351,7 @@ ok(names[:3] == ["Alpha", ML("Film One"), ML("Film Two")] and items[0][2] is Tru
 ok("[Movie]" not in items[0][0].label, "shows are not labelled")
 mi = items[1][0]
 ok(mi.tag.d.get("Title") == ML("Film One") and mi.props.get("boxset_title") == "Film One", "the title the skin draws carries [Movie]; the real title is kept in a property")
+ok(mi.props.get("boxset_movie") == "true" and "boxset_movie" not in items[0][0].props, "movies (not shows) are marked for the skin's MOVIE tag")
 ok(items[1][2] is False and "action=play_movie&id=10" in items[1][1] and items[1][0].tag.d["MediaType"] == "movie", "movie item plays through the add-on")
 ok(items[2][0].tag.d.get("Playcount") == 1, "watched movie flagged watched")
 xbmc.RPC_LOG.clear(); runq("action=play_movie&id=10")
@@ -842,8 +843,14 @@ ok(rows("View_504_MediaList.xml", "TvBoxsetsBadge") == [{"left": "70", "top": "1
 ok(rows("View_50_List.xml", "TvBoxsetsRowBadge") == [] and b"TvBoxsets" not in open(os.path.join(xdir, "View_50_List.xml"), "rb").read(), "a row with no room before the title is left alone")
 inc = ET.parse(os.path.join(xdir, "Includes_TvBoxsets.xml")).getroot()
 rb = [i for i in inc.iter("include") if i.get("name") == "TvBoxsetsRowBadge"][0]
+mt = [i for i in inc.iter("include") if i.get("name") == "TvBoxsetsMovieTag"][0]
+ok("boxset_movie" in mt.find(".//visible").text and any(c.text == "MOVIE" for c in mt.iter("label")), "movie tag include is only visible on items the add-on marks as movies")
+pv = open(os.path.join(xdir, "View_54_InfoWall.xml"), encoding="utf-8").read()
+ok(pv.count('content="TvBoxsetsMovieTag"') >= 1 and pv.count('content="TvBoxsetsMovieTag"') == pv.count('content="TvBoxsetsNameBadge"'), "every poster gets a movie tag next to its name badge")
+skinpatch.patch_badges(xdir)
+ok(open(os.path.join(xdir, "View_54_InfoWall.xml"), encoding="utf-8").read() == pv, "patching again leaves the movie tags unchanged (no duplicates)")
 ok(rb.find(".//centertop").text == "50%" and "DBID" in rb.find(".//texture").text, "row badge is vertically centred and uses the same per-item picture")
-text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v4", "tvboxsets-badge v1")
+text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v5", "tvboxsets-badge v1")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(text)
 ok(not skinpatch.has_badges(xdir), "a skin copy made with badge version 1 is not counted as current")
 skinpatch.patch_badges(xdir)
@@ -982,7 +989,7 @@ text = open(os.path.join(xdir, "View_51_Poster.xml"), encoding="utf-8", newline=
 text = text.replace("TvBoxsetsNameBadge", "TvBoxsetsBadge")
 with open(os.path.join(xdir, "View_51_Poster.xml"), "w", encoding="utf-8", newline="") as f:
     f.write(text)
-inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v4", "tvboxsets-badge v2")
+inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v5", "tvboxsets-badge v2")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(inc_text)
 ok(not skinpatch.has_badges(xdir), "a skin copy from the previous version (round badges on posters) counts as out of date")
 skinpatch.patch_badges(xdir)

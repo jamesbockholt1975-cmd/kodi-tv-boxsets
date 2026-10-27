@@ -267,6 +267,7 @@ def open_boxset(bid):
             # (which the right-click scripts and Kodi's info use) stays the plain movie title.
             li = xbmcgui.ListItem(label=movie_label(item["title"]))
             li.setProperty("boxset_title", item["title"])  # the real title, for the right-click scripts
+            li.setProperty("boxset_movie", "true")  # the skin draws a MOVIE tag on the poster
             li.setArt(item.get("art", {}))
             tag = li.getVideoInfoTag()
             tag.setMediaType("movie")
@@ -288,6 +289,8 @@ def open_boxset(bid):
             li.setArt({"icon": icon, "thumb": icon})
             tag = li.getVideoInfoTag()
             li.setProperty("boxset_title", ref["title"])
+            if is_movie:
+                li.setProperty("boxset_movie", "true")
             tag.setMediaType("movie" if is_movie else "tvshow")
             tag.setTitle(ref["title"] + (" [Movie]" if is_movie else ""))
             if ref.get("year"):

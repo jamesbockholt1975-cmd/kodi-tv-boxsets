@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.12.1" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.12.2" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -58,7 +58,10 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.12.1 (alpha)
+    <news>v0.12.2 (alpha)
+- Fix: movies inside a boxset now show a blue "MOVIE" tag in the corner of their poster. Estuary's InfoWall, Poster and Wall views draw no title under a poster, so the text label could not show there. The skin copy needs the update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.12.1 (alpha)
 - Fix: the "[Movie]" label did not show on movies inside a boxset because the skin draws the movie's title, not the list label. The title now carries it too; the right-click menu still uses the real title
 
 v0.12.0 (alpha)

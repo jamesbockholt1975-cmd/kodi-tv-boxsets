@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.2 (alpha)
+- **Fix: the movie marker now shows in InfoWall / Poster / Wall views.** Estuary draws no title under a poster
+  in those views (only the picture), so a `[Movie]` text label could not appear there. Movies in a boxset are
+  now marked with a blue **MOVIE** tag in the top-right corner of the poster, drawn by the skin copy (same
+  mechanism as the boxset-name pills; badge include version 5). List views still show `[Movie]` after the
+  title. Needs the skin update once (Boxsets menu > "Update 'Estuary (Boxsets)'...").
+- The add-on marks movies for the skin with the list item property `boxset_movie`.
+- Checked against a real copy of Estuary's view files: 14 placements, all files valid XML, safe to run twice.
+- Tests: 385 checks.
+
 ## 0.12.1 (alpha)
 - **Fix: no `[Movie]` label on movies inside a boxset (0.12.0).** Estuary draws a movie's title field, not the
   list label, so the label was never seen. The title now carries `[Movie]` as well, and the real title is
