@@ -27,3 +27,10 @@ def move(delta):
                year=xbmc.getInfoLabel("ListItem.Year") or "0",
                media="movie" if xbmc.getInfoLabel("ListItem.DBType") == "movie" else "tvshow",
                delta=delta)
+
+
+def place():
+    run_plugin(action="place", bid=current_bid(),
+               title=xbmc.getInfoLabel("ListItem.Title"),
+               year=xbmc.getInfoLabel("ListItem.Year") or "0",
+               media="movie" if xbmc.getInfoLabel("ListItem.DBType") == "movie" else "tvshow")

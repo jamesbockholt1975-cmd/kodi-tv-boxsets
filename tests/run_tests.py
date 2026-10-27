@@ -346,7 +346,9 @@ ok(tile.props["TotalEpisodes"] == "12" and tile.props["WatchedEpisodes"] == "5",
 ok(tile.tag.d["Plot"].startswith("1 show(s), 2 movie(s); 5 of 12 watched"), "tile summary mentions movies")
 items = run("action=open&bid=m1")
 names = [i[0].label for i in items]
-ok(names[:3] == ["Alpha", "Film One", "Film Two"] and items[0][2] is True, "mixed boxset lists shows and movies A-Z")
+ML = lambda t: t + " [COLOR lightskyblue][Movie][/COLOR]"  # noqa: E731
+ok(names[:3] == ["Alpha", ML("Film One"), ML("Film Two")] and items[0][2] is True, "mixed boxset lists shows and movies A-Z, movies labelled [Movie]")
+ok("[Movie]" not in items[0][0].label, "shows are not labelled")
 ok(items[1][2] is False and "action=play_movie&id=10" in items[1][1] and items[1][0].tag.d["MediaType"] == "movie", "movie item plays through the add-on")
 ok(items[2][0].tag.d.get("Playcount") == 1, "watched movie flagged watched")
 xbmc.RPC_LOG.clear(); runq("action=play_movie&id=10")
@@ -402,7 +404,7 @@ runq("action=create_smart", input=["Nothing"], select=[6, -1])
 ok(any(k == "ok" and "at least one rule" in v for k, v in D.LOG), "saving with no rules is refused")
 ok(store.find_by_name(store.load(), "Nothing") is None, "cancelled smart boxset is not kept")
 d = store.load(); d[rid]["rules"] = {"media": "both", "genre": "Drama"}; store.save(d)
-ok([i[0].label for i in run("action=open&bid=%s" % rid)][:3] == ["Alpha", "Film One", "Gamma"], "smart rules can include movies")
+ok([i[0].label for i in run("action=open&bid=%s" % rid)][:3] == ["Alpha", ML("Film One"), "Gamma"], "smart rules can include movies")
 runq("action=rules&bid=%s" % rid, select=[7])
 ok("rules" not in store.load()[rid], "rules can be removed, leaving a normal boxset")
 
@@ -610,8 +612,8 @@ ok(mv("mv", "Gamma", 2020, -1) == [] and titles("mv") == ["Gamma", "Alpha", "Bet
 ok(mv("mv", "Beta", 2015, 1) == [] and titles("mv") == ["Gamma", "Alpha", "Beta"], "already last: nothing changes")
 ok(mv("mv", "Alpha", 1999, 1) != [] and titles("mv") == ["Gamma", "Beta", "Alpha"], "a year mismatch falls back to the title")
 d = store.load(); d["mv"]["shows"].append({"title": "Film One", "year": 2012, "type": "movie"}); store.save(d)
-ok(titles("mv") == ["Gamma", "Beta", "Alpha", "Film One"], "something added later goes to the end of a manual order")
-ok(mv("mv", "Film One", 2012, -1, "movie") != [] and titles("mv")[2] == "Film One", "movies move too")
+ok(titles("mv") == ["Gamma", "Beta", "Alpha", ML("Film One")], "something added later goes to the end of a manual order")
+ok(mv("mv", "Film One", 2012, -1, "movie") != [] and titles("mv")[2] == ML("Film One"), "movies move too")
 store.save({"sm": dict(box("Smart", [B]), rules={"media": "tv", "genre": "Drama"})})
 ok(titles("sm") == ["Alpha", "Beta", "Gamma"], "smart boxset starts A-Z")
 ok(mv("sm", "Gamma", 2020, -1) != [] and titles("sm") == ["Alpha", "Gamma", "Beta"], "smart boxsets can be ordered too")
@@ -646,6 +648,30 @@ ok(len({i.findtext("label") for i in ctx_items}) == len(ctx_items), "right-click
 inside = [i for i in ctx_items if i.get("library") != "context.py"]
 ok(all("action=open" in i.findtext("visible") for i in inside), "in-boxset items only show while browsing a boxset")
 ok(all("boxset_action" in i.findtext("visible") for i in inside if i.get("library") in ("ctx_move_up.py", "ctx_move_down.py", "context_remove.py")), "Move/Remove are hidden on placeholder rows")
+
+print("== place an item after another")
+store.save({"pl": box("Placing", [A, B, G, {"title": "Film One", "year": 2012, "type": "movie"}])})
+plain = lambda bid: [__import__("re").sub(r"\s*\[[^\]]*\]", "", t).strip() for t in titles(bid)]  # noqa: E731
+def place(bid, title, year, media, pick):
+    runq("action=place&" + urlencode({"bid": bid, "title": title, "year": year, "media": media}), select=[pick])
+ok(plain("pl") == ["Alpha", "Beta", "Film One", "Gamma"], "starting order is A-Z")
+place("pl", "Film One", 2012, "movie", 1)  # list: [At the start], 1. Alpha, 2. Beta, 3. Gamma -> after Alpha
+ok(plain("pl") == ["Alpha", "Film One", "Beta", "Gamma"], "a movie can be placed straight after a chosen show")
+place("pl", "Film One", 2012, "movie", 0)
+ok(plain("pl")[0] == "Film One", "or at the very start")
+place("pl", "Film One", 2012, "movie", 3)
+ok(plain("pl") == ["Alpha", "Beta", "Gamma", "Film One"], "or at the very end (after the last item)")
+b = store.load()["pl"]
+ok(b["manual_order"] is True and len(b["shows"]) == 4, "placing sets a manual order and keeps membership")
+place("pl", "Gamma", 2020, "tvshow", -1)
+ok(plain("pl") == ["Alpha", "Beta", "Gamma", "Film One"], "cancelling the dialog changes nothing")
+store.save({"one": box("Solo", [A])})
+place("one", "Alpha", 2010, "tvshow", 0)
+ok(plain("one") == ["Alpha"], "a single item has nothing to be placed next to")
+xbmc.INFO["ListItem.DBType"] = "movie"; xbmc.INFO["ListItem.Title"] = "Film One"; xbmc.INFO["ListItem.Year"] = "2012"
+cmdp = run_script("ctx_place.py")
+ok(all(x in cmdp for x in ("action=place", "bid=mv", "media=movie")) and "Film" in cmdp, "Place script hands the right details to the add-on")
+ok(any(i.get("library") == "ctx_place.py" and "boxset_action" in i.findtext("visible") for i in ctx_items), "Place is hidden on placeholder rows")
 
 print("== 'Boxsets...' on a library show or movie")
 store.save({"a": box("Alpha Manual", [A]), "b": dict(box("Beta Smart", []), rules={"media": "tv", "genre": "Drama"}), "c": box("Gamma Only", [G])})

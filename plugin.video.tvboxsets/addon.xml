@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.11.3" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.12.0" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -19,6 +19,10 @@
       </item>
       <item library="ctx_move_down.py">
         <label>Move down</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+      </item>
+      <item library="ctx_place.py">
+        <label>Place after another item...</label>
         <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
       </item>
       <item library="context_remove.py">
@@ -54,7 +58,11 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.11.3 (alpha)
+    <news>v0.12.0 (alpha)
+- Movies inside a boxset are now labelled "[Movie]" so they stand out among the shows
+- New right-click entry inside a boxset: "Place after another item...". Pick where a movie (or any item) goes in the viewing order, for example straight after the show it belongs to
+
+v0.11.3 (alpha)
 - Updates now come from GitHub: each release publishes the Kodi repository (with the very same zip as the release page). Install the new TV Boxsets Repository once; no change to how the add-on works
 
 v0.11.2 (alpha)

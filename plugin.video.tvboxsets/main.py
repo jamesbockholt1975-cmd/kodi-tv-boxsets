@@ -263,7 +263,9 @@ def open_boxset(bid):
             xbmcplugin.addDirectoryItem(HANDLE, node, li, True)
             shown += 1
         elif item and is_movie:
-            li = xbmcgui.ListItem(label=item["title"])
+            # Marked as a movie so it stands out among the shows. Only the label changes: the title
+            # (which the right-click scripts and Kodi's info use) stays the plain movie title.
+            li = xbmcgui.ListItem(label=movie_label(item["title"]))
             li.setArt(item.get("art", {}))
             tag = li.getVideoInfoTag()
             tag.setMediaType("movie")
@@ -279,7 +281,8 @@ def open_boxset(bid):
             shown += 1
         elif show_missing:
             # In the boxset but not in the library right now (removed, or not scanned yet).
-            li = xbmcgui.ListItem(label="[COLOR grey]{} (not in library)[/COLOR]".format(ref["title"]))
+            li = xbmcgui.ListItem(label="[COLOR grey]{}{} (not in library)[/COLOR]".format(
+                ref["title"], " [Movie]" if is_movie else ""))
             icon = "DefaultMovies.png" if is_movie else "DefaultTVShows.png"
             li.setArt({"icon": icon, "thumb": icon})
             tag = li.getVideoInfoTag()
@@ -400,6 +403,10 @@ def add_items(bid, media="tvshow"):
     notify("Added {} item(s)".format(len(chosen)))
 
 
+def movie_label(title):
+    return "{} [COLOR lightskyblue][Movie][/COLOR]".format(title)
+
+
 def entry_label(ref):
     kind = " [movie]" if media_of(ref) == "movie" else ""
     return "{} ({}){}".format(ref["title"], ref.get("year", ""), kind)
@@ -513,7 +520,8 @@ def reorder_shows(bid):
     refs = [dict(r) for r, _ in entries]  # start from the order currently shown
     last = 0
     while True:
-        labels = ["{}. {}".format(i + 1, r["title"]) for i, r in enumerate(refs)]
+        labels = ["{}. {}{}".format(i + 1, r["title"], " [Movie]" if media_of(r) == "movie" else "")
+                  for i, r in enumerate(refs)]
         pick = xbmcgui.Dialog().select(
             "Pick an item to move (press Back when finished)", labels, preselect=last)
         if pick < 0:
@@ -532,6 +540,18 @@ def reorder_shows(bid):
     save(data)
 
 
+def _find_index(refs, title, year, media):
+    wanted = {"title": title, "year": int(year or 0)}
+    if media == "movie":
+        wanted["type"] = "movie"
+    keys = [show_key(r) for r in refs]
+    if show_key(wanted) in keys:
+        return keys.index(show_key(wanted))
+    # years can differ after a metadata refresh: fall back to the title
+    return next((i for i, r in enumerate(refs)
+                 if r["title"].lower() == title.lower() and media_of(r) == media), None)
+
+
 def move_entry(bid, title, year, media, delta):
     """Move one item up (delta=-1) or down (+1) in the boxset's viewing order."""
     data = load()
@@ -539,15 +559,7 @@ def move_entry(bid, title, year, media, delta):
     if not bs:
         return False
     refs = [dict(r) for r, _ in ordered_entries(bs, Library())]
-    wanted = {"title": title, "year": int(year or 0)}
-    if media == "movie":
-        wanted["type"] = "movie"
-    keys = [show_key(r) for r in refs]
-    if show_key(wanted) in keys:
-        idx = keys.index(show_key(wanted))
-    else:  # years can differ after a metadata refresh: fall back to the title
-        idx = next((i for i, r in enumerate(refs)
-                    if r["title"].lower() == title.lower() and media_of(r) == media), None)
+    idx = _find_index(refs, title, year, media)
     if idx is None:
         notify("Couldn't find '{}' in this boxset".format(title))
         return False
@@ -556,6 +568,40 @@ def move_entry(bid, title, year, media, delta):
         notify("'{}' is already {}".format(title, "first" if delta < 0 else "last"))
         return False
     refs.insert(target, refs.pop(idx))
+    bs["order"] = refs
+    bs["manual_order"] = True
+    save(data)
+    return True
+
+
+def place_entry(bid, title, year, media, after=None):
+    """Put an item (usually a movie) straight after another entry in the viewing order.
+
+    `after` is the chosen entry's index among the OTHER items (-1 = at the very start);
+    when it is None the person is asked to pick from a list.
+    """
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return False
+    refs = [dict(r) for r, _ in ordered_entries(bs, Library())]
+    idx = _find_index(refs, title, year, media)
+    if idx is None:
+        notify("Couldn't find '{}' in this boxset".format(title))
+        return False
+    moving = refs.pop(idx)
+    if not refs:
+        notify("There is nothing else in this boxset to place it next to")
+        return False
+    if after is None:
+        choices = ["[At the start]"] + [
+            "{}. {}{}".format(i + 1, r["title"], " [Movie]" if media_of(r) == "movie" else "")
+            for i, r in enumerate(refs)]
+        pick = xbmcgui.Dialog().select("Place '{}' after...".format(title), choices, preselect=min(idx, len(refs)))
+        if pick < 0:
+            return False
+        after = pick - 1
+    refs.insert(max(-1, min(len(refs) - 1, after)) + 1, moving)
     bs["order"] = refs
     bs["manual_order"] = True
     save(data)
@@ -1194,6 +1240,8 @@ def router(paramstring):
             refresh_rows()
         elif action in ("menu", "tools"):
             global_menu()
+        elif action == "place":
+            place_entry(p["bid"], p.get("title", ""), p.get("year", 0), p.get("media", "tvshow"))
         elif action == "move":
             control = xbmc.getInfoLabel("System.CurrentControlID")
             delta = int(p.get("delta", "0") or 0)

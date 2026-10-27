@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0 (alpha)
+- **Movies are labelled inside a boxset.** In a boxset's list a movie now shows `[Movie]` after its title (in
+  light blue), including movies that are not in the library at the moment. Only the label changes: the
+  movie's title, artwork and info are untouched, so the right-click menu and Kodi's own info keep working.
+- **Place a movie (or any item) after another one.** New right-click entry inside a boxset, "Place after
+  another item...": pick the show (or "[At the start]") and the item moves straight after it, for example a
+  film right after the series it belongs to. It uses the manual viewing order, like Move up/down, and does
+  not change what is in the boxset. The order dialog ("Change show order") also marks movies with `[Movie]`.
+- Tests: 379 checks.
+
 ## 0.11.3 (alpha)
 - **Updates now come from GitHub.** Publishing a release (pushing a `v...` tag) now also builds the Kodi
   repository and publishes it with GitHub Pages (the `gh-pages` branch), serving the *same* zip that is

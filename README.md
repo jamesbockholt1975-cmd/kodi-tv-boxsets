@@ -16,7 +16,7 @@ and widget for the default **Estuary** skin.
 
 - Create boxsets, add and remove shows, rename, delete.
 - Right-click any library TV show or movie: **Boxsets...** (see which boxsets it is in, tick to add or remove).
-- Right-click inside a boxset: **Move up / Move down**, **Remove from this boxset**, **Play next
+- Right-click inside a boxset: **Move up / Move down**, **Place after another item** (put a movie right after its show), **Remove from this boxset**, **Play next
   unwatched episode**, **Add shows / movies**, and the **Boxsets menu** (create, backup, tags,
   skin setup, diagnostics). The lists themselves show only boxsets and shows.
 - Custom poster, fanart, banner, clear logo and landscape art per boxset; manual or A-Z order;
