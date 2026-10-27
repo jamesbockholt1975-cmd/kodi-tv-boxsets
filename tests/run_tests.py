@@ -1098,4 +1098,35 @@ bad = subprocess.run([sys.executable, os.path.join(TOOLS, "make_repo.py"), "--ba
                      capture_output=True, text=True)
 ok(bad.returncode != 0, "make_repo.py rejects a base URL without http(s)://")
 
+# --- repository served from GitHub Pages: the release zip is published byte for byte ---
+rel_zip = os.path.join(ROOT, "rel", "plugin.video.tvboxsets-%s.zip" % ver)
+os.makedirs(os.path.dirname(rel_zip), exist_ok=True)
+shutil.copy(out1, rel_zip)
+pages = os.path.join(ROOT, "pages")
+res = subprocess.run([sys.executable, os.path.join(TOOLS, "make_repo.py"), "--addon-zip", rel_zip, "--repo-version", "1.2.0",
+                      "--base-url", "https://someone.github.io/kodi-tv-boxsets/", "--out", pages], capture_output=True, text=True)
+ok(res.returncode == 0, "make_repo.py --addon-zip runs: " + res.stderr[-200:])
+served = os.path.join(pages, "zips/plugin.video.tvboxsets/plugin.video.tvboxsets-%s.zip" % ver)
+ok(open(served, "rb").read() == open(rel_zip, "rb").read(), "the repository serves the release zip byte for byte")
+ok(os.path.exists(os.path.join(pages, ".nojekyll")), "the Pages site has .nojekyll")
+ok(os.path.exists(os.path.join(pages, "repository.tvboxsets-1.2.0.zip")), "repository add-on zip carries the requested version")
+ok("https://someone.github.io/kodi-tv-boxsets/addons.xml" in zipfile.ZipFile(os.path.join(pages, "repository.tvboxsets-1.2.0.zip")).read("repository.tvboxsets/addon.xml").decode(),
+   "repository add-on points at GitHub Pages")
+hand = os.path.join(ROOT, "hand")
+res = subprocess.run([sys.executable, os.path.join(TOOLS, "make_repo.py"), "--repo-version", "1.2.0",
+                      "--base-url", "https://old.example.com/", "--repo-url", "https://new.example.com/x/", "--out", hand], capture_output=True, text=True)
+hx = zipfile.ZipFile(os.path.join(hand, "repository.tvboxsets-1.2.0.zip")).read("repository.tvboxsets/addon.xml").decode()
+ok(res.returncode == 0 and "https://new.example.com/x/addons.xml" in hx and "old.example.com" not in hx,
+   "--repo-url sends the repository add-on to another address (hand-over site)")
+wrong = os.path.join(ROOT, "rel", "plugin.video.tvboxsets-9.9.9.zip")
+with zipfile.ZipFile(wrong, "w") as z:
+    z.writestr("plugin.video.tvboxsets/addon.xml", '<addon id="plugin.video.tvboxsets" version="9.9.9"/>')
+bad2 = subprocess.run([sys.executable, os.path.join(TOOLS, "make_repo.py"), "--addon-zip", wrong, "--base-url", "https://a.example/", "--out", repo + "3"],
+                      capture_output=True, text=True)
+ok(bad2.returncode != 0 and not os.path.exists(os.path.join(repo + "3", "addons.xml")), "an --addon-zip of another version is refused")
+rel = open(os.path.join(REPO, ".github", "workflows", "release.yml")).read()
+ok("tools/make_repo.py" in rel and "gh-pages" in rel and "--addon-zip" in rel and "site/repository.tvboxsets-" in rel,
+   "release workflow builds the repository and publishes it to gh-pages")
+ok('REPO_VERSION: "1.2.0"' in rel, "release workflow sets the repository add-on version")
+
 print("\nALL {} CHECKS PASSED".format(CHECKS[0]))

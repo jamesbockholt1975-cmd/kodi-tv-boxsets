@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.3 (alpha)
+- **Updates now come from GitHub.** Publishing a release (pushing a `v...` tag) now also builds the Kodi
+  repository and publishes it with GitHub Pages (the `gh-pages` branch), serving the *same* zip that is
+  attached to the release, byte for byte, so its checksum matches `SHA256SUMS`. People install the
+  repository add-on once and Kodi then offers every new release by itself.
+- `tools/make_repo.py`: `--addon-zip` (publish a zip that is already built, refused if it is another
+  version), `--repo-url` (address written into the repository add-on, for a hand-over site), and a
+  `.nojekyll` file for GitHub Pages.
+- Repository add-on 1.2.0 points at GitHub Pages. The old Netlify site gets one last update that offers
+  it, so existing users move over.
+- Tests: 368 checks.
+
 ## 0.11.2 (alpha)
 - Source and release links: the add-on's information page in Kodi now shows the GitHub repository as its
   website and source; the README has a tests badge and links; the repository's landing page links to the

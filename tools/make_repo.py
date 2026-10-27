@@ -22,6 +22,7 @@ import re
 import shutil
 import sys
 import tempfile
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -78,10 +79,31 @@ def strip_declaration(xml_text):
     return re.sub(r"^\s*<\?xml[^>]*\?>\s*", "", xml_text)
 
 
-def make_repo(base_url, out_dir, repo_version="1.0.0"):
-    if not re.match(r"^https?://[^/\s]+", base_url):
-        raise SystemExit("--base-url must start with http:// or https://")
-    base = base_url if base_url.endswith("/") else base_url + "/"
+def _normalise(url, option):
+    if not re.match(r"^https?://[^/\s]+", url):
+        raise SystemExit("%s must start with http:// or https://" % option)
+    return url if url.endswith("/") else url + "/"
+
+
+def _check_zip(addon_zip, expected_version):
+    """A zip handed in with --addon-zip must really be this source's add-on at this version."""
+    try:
+        with zipfile.ZipFile(addon_zip) as z:
+            xml = z.read(ADDON_ID + "/addon.xml").decode("utf-8")
+    except (OSError, KeyError, zipfile.BadZipFile):
+        raise SystemExit("--addon-zip is not a zip of %s" % ADDON_ID)
+    found = re.search(r'<addon\b[^>]*?\sversion="([^"]+)"', xml)
+    if not found or found.group(1) != expected_version:
+        raise SystemExit("--addon-zip is version %s but the source is %s" % (
+            found.group(1) if found else "?", expected_version))
+
+
+def make_repo(base_url, out_dir, repo_version="1.0.0", addon_zip=None, repo_url=None):
+    """repo_url: the address written INTO the repository add-on (defaults to base_url). It differs from
+    base_url only for a hand-over site, whose index serves old installs while the new repository add-on
+    sends people somewhere else."""
+    base = _normalise(base_url, "--base-url")
+    repo_base = _normalise(repo_url, "--repo-url") if repo_url else base
     shutil.rmtree(out_dir, ignore_errors=True)
     addon_src = os.path.join(ROOT, ADDON_ID)
 
@@ -89,12 +111,19 @@ def make_repo(base_url, out_dir, repo_version="1.0.0"):
         repo_src = os.path.join(tmp, REPO_ID)
         os.makedirs(repo_src)
         with open(os.path.join(repo_src, "addon.xml"), "w", encoding="utf-8") as f:
-            f.write(REPO_XML.format(id=REPO_ID, version=repo_version, base=base))
+            f.write(REPO_XML.format(id=REPO_ID, version=repo_version, base=repo_base))
         shutil.copy(os.path.join(addon_src, "icon.png"), os.path.join(repo_src, "icon.png"))
 
         addon_dir = os.path.join(out_dir, "zips", ADDON_ID)
         repo_dir = os.path.join(out_dir, "zips", REPO_ID)
-        addon_zip, addon_version, _ = build_zip.build_zip(addon_src, addon_dir)
+        if addon_zip:
+            # serve the exact zip a release attached, byte for byte, so its checksum matches
+            addon_version = build_zip.read_version(addon_src)
+            _check_zip(addon_zip, addon_version)
+            os.makedirs(addon_dir, exist_ok=True)
+            shutil.copy(addon_zip, os.path.join(addon_dir, "%s-%s.zip" % (ADDON_ID, addon_version)))
+        else:
+            addon_zip, addon_version, _ = build_zip.build_zip(addon_src, addon_dir)
         repo_zip, _, _ = build_zip.build_zip(repo_src, repo_dir)
         for name in ("icon.png", "fanart.jpg"):
             shutil.copy(os.path.join(addon_src, name), addon_dir)
@@ -106,6 +135,7 @@ def make_repo(base_url, out_dir, repo_version="1.0.0"):
             with open(os.path.join(src, "addon.xml"), encoding="utf-8") as f:
                 parts.append(strip_declaration(f.read()).strip())
 
+    open(os.path.join(out_dir, ".nojekyll"), "w").close()  # GitHub Pages: serve files as they are
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
         source = ""
         found = re.search(r"<source>([^<]+)</source>", open(os.path.join(addon_src, "addon.xml"), encoding="utf-8").read())
@@ -129,8 +159,10 @@ def main():
     ap.add_argument("--out", default=os.path.join(ROOT, "dist", "repo"))
     ap.add_argument("--repo-version", default="1.0.0",
                     help="raise this if you ever change --base-url so Kodi updates the repository add-on")
+    ap.add_argument("--addon-zip", help="publish this already-built add-on zip (for example the release's) instead of building one")
+    ap.add_argument("--repo-url", help="address written into the repository add-on if it differs from --base-url (hand-over sites)")
     args = ap.parse_args()
-    base, version, repo_zip = make_repo(args.base_url, args.out, args.repo_version)
+    base, version, repo_zip = make_repo(args.base_url, args.out, args.repo_version, args.addon_zip, args.repo_url)
     print("Repository built in", args.out)
     print("Upload the contents of that folder to:", base)
     print("Check it works by opening", base + "addons.xml", "in a browser.")

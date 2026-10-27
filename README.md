@@ -37,9 +37,17 @@ and widget for the default **Estuary** skin.
 
 ## Install
 
-1. Download a zip from the releases page, or build it yourself (see below).
-2. In Kodi: **Settings > Add-ons > Install from zip file** (enable *Unknown sources* first).
-3. Restart Kodi so the right-click menu entries load.
+**Best: through the repository, so Kodi updates it for you.**
+
+1. Download `repository.tvboxsets-<version>.zip` from the
+   [releases page](https://github.com/jamesbockholt1975-cmd/kodi-tv-boxsets/releases) (or from
+   https://jamesbockholt1975-cmd.github.io/kodi-tv-boxsets/).
+2. In Kodi: **Settings > Add-ons > Install from zip file** (enable *Unknown sources* first) and choose it.
+3. **Add-ons > Install from repository > TV Boxsets Repository > Video add-ons > TV Boxsets > Install.**
+4. Restart Kodi so the right-click menu entries load. New releases are then offered by Kodi itself.
+
+**Or by hand:** download `plugin.video.tvboxsets-<version>.zip` from the releases page and use
+**Install from zip file**. Releases are built by GitHub from the tagged source, with `SHA256SUMS`.
 
 For the home screen item, open the add-on and choose **Add 'Boxsets' to the home screen
 (Estuary)**. That builds a modified copy of Estuary called *Estuary (Boxsets)*; your normal

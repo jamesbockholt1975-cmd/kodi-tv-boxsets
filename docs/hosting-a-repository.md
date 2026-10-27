@@ -1,3 +1,10 @@
+> **This project's own repository is published automatically.** Pushing a `v...` tag runs the Release
+> workflow, which builds the repository and publishes it on GitHub Pages (the `gh-pages` branch) at
+> `https://<owner>.github.io/<repo>/`. One-time setup: repository **Settings > Pages > Source: Deploy from a
+> branch > `gh-pages` / `(root)`** (the branch appears after the first release), and **Settings > Actions >
+> General > Workflow permissions: Read and write**. The rest of this page is for hosting a repository
+> yourself on another server.
+
 # Hosting updates without GitHub
 
 You only need somewhere that serves plain files over the web, such as your own website's

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.11.2" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.11.3" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -54,7 +54,10 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.11.2 (alpha)
+    <news>v0.11.3 (alpha)
+- Updates now come from GitHub: each release publishes the Kodi repository (with the very same zip as the release page). Install the new TV Boxsets Repository once; no change to how the add-on works
+
+v0.11.2 (alpha)
 - The source code is now on GitHub (link on this page): tests run on every change and release zips are built there from the tagged source, with checksums
 
 v0.11.1 (alpha)

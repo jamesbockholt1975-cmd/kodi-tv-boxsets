@@ -20,6 +20,8 @@ permissions:
   contents: write
 
 env:
+  # the version of the small "repository" add-on people install once. Raise it only if the Pages address changes.
+  REPO_VERSION: "1.2.0"
   TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
@@ -43,6 +45,13 @@ jobs:
           fi
       - name: Build the add-on zip
         run: python3 tools/build_zip.py
+      - name: Build the Kodi repository (the update channel)
+        run: |
+          owner=$(echo "${GITHUB_REPOSITORY%%/*}" | tr 'A-Z' 'a-z')
+          python3 tools/make_repo.py \
+            --addon-zip "dist/plugin.video.tvboxsets-${TAG#v}.zip" \
+            --base-url "https://${owner}.github.io/${GITHUB_REPOSITORY#*/}/" \
+            --repo-version "$REPO_VERSION" --out site
       - name: Checksums
         run: |
           cd dist
@@ -56,8 +65,19 @@ jobs:
           title="TV Boxsets ${TAG#v} (alpha)"
           if gh release view "$TAG" > /dev/null 2>&1; then
             # the release already exists (for example it was published on the web page): add the files to it
-            gh release upload "$TAG" dist/*.zip dist/SHA256SUMS --clobber
+            gh release upload "$TAG" dist/*.zip site/repository.tvboxsets-*.zip dist/SHA256SUMS --clobber
             gh release edit "$TAG" --title "$title" --notes-file release-notes.md
           else
-            gh release create "$TAG" dist/*.zip dist/SHA256SUMS --title "$title" --notes-file release-notes.md
+            gh release create "$TAG" dist/*.zip site/repository.tvboxsets-*.zip dist/SHA256SUMS --title "$title" --notes-file release-notes.md
           fi
+      - name: Publish the repository to GitHub Pages (the gh-pages branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd site
+          git init -q -b gh-pages
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Repository for ${TAG}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
