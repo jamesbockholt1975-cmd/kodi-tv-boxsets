@@ -1631,7 +1631,7 @@ def collect_info():
     installed = skin_installed()
     return {
         "kodi_version": xbmc.getInfoLabel("System.BuildVersion"),
-        "os": xbmc.getInfoLabel("System.OSVersionInfo"),
+        "os": os_description(),
         "active_skin": xbmc.getSkinDir(),
         "library_shows": len(lib.shows),
         "addon_version": xbmcaddon.Addon().getAddonInfo("version"),
@@ -1665,6 +1665,15 @@ def collect_info():
         "setting_hide_categories": store.setting_bool("hide_categories", False),
         "clone_outdated": skin_outdated(),
     }
+
+
+def os_description():
+    """Kodi's OS label, or Python's own when Kodi still says 'Busy' (it fills that label in lazily)."""
+    value = (xbmc.getInfoLabel("System.OSVersionInfo") or "").strip()
+    if value and value.lower() != "busy":
+        return value
+    import platform
+    return platform.platform()
 
 
 def diagnostics_report():

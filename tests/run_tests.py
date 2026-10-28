@@ -1047,6 +1047,13 @@ ok("action=watch_export" in run_script("ctx_watch_export.py"), "export context s
 ok(vis.get("ctx_watch_export.py") and "action=watch" in vis["ctx_watch_export.py"], "the export entry is shown in the watch order view")
 xbmc.LIB[:] = saved_lib; xbmc.MOVIES[:] = saved_movies; store.save(saved_store)
 
+print("== diagnostics: operating system label")
+xbmc.INFO["System.OSVersionInfo"] = "Busy"
+ok(main.os_description() not in ("", "Busy"), "'Busy' from Kodi is replaced by Python's description")
+xbmc.INFO["System.OSVersionInfo"] = "Windows 11 (build 22631)"
+ok(main.os_description() == "Windows 11 (build 22631)", "a real value from Kodi is kept")
+xbmc.INFO.pop("System.OSVersionInfo")
+
 print("== boxset name on its own tile")
 store.save({"n1": box("Name Me", [A])})
 tiles = run("")

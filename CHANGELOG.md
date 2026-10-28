@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.2 (alpha)
+- **Fix: "Operating system: Busy" in the diagnostics report.** Kodi fills that label in lazily; the report now
+  falls back to Python's own description when Kodi says Busy.
+- **Release page and README now say which file to install.** Using GitHub's automatic *Source code (zip)* /
+  *Download ZIP* gives Kodi's "invalid structure" error (the add-on sits inside an extra folder). The release
+  notes and README now tell people to use `plugin.video.tvboxsets-<version>.zip` or
+  `repository.tvboxsets-<version>.zip` from the Assets list.
+- Tests: 562 checks.
+
 ## 0.21.1 (alpha)
 - **Boxset name on its poster.** Views such as InfoWall draw no title under a poster, so in the Boxsets list
   (and the home screen Boxsets row) you could not tell which boxset a tile was. Each boxset tile now carries

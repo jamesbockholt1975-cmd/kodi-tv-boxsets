@@ -30,7 +30,11 @@ def main():
     if body is None:
         sys.exit("CHANGELOG.md has no section for version {}".format(sys.argv[1]))
     print(body.strip())
-    print("\n---\nThe zip was built by GitHub from this tag's source; its SHA256 is in `SHA256SUMS`. "
+    print("\n---\n**Which file to install in Kodi:** download `plugin.video.tvboxsets-<version>.zip` (or "
+          "`repository.tvboxsets-<version>.zip` for automatic updates) from the *Assets* list below. "
+          "Do **not** use GitHub's *Source code (zip)* or the green *Code > Download ZIP* button: those contain "
+          "the whole project in an extra folder, and Kodi reports *invalid structure*.\n\n"
+          "The zip was built by GitHub from this tag's source; its SHA256 is in `SHA256SUMS`. "
           "To check a download, compare it with that file, or build it yourself with "
           "`python3 tools/build_zip.py`.")
 

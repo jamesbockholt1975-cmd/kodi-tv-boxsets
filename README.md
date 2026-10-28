@@ -50,6 +50,9 @@ and widget for the default **Estuary** skin.
 3. **Add-ons > Install from repository > TV Boxsets Repository > Video add-ons > TV Boxsets > Install.**
 4. Restart Kodi so the right-click menu entries load. New releases are then offered by Kodi itself.
 
+**Do not** use GitHub's *Source code (zip)* or *Code > Download ZIP*: they wrap the whole project in an
+extra folder and Kodi says *invalid structure*. Use the files named below from the release's **Assets**.
+
 **Or by hand:** download `plugin.video.tvboxsets-<version>.zip` from the releases page and use
 **Install from zip file**. Releases are built by GitHub from the tagged source, with `SHA256SUMS`.
 
