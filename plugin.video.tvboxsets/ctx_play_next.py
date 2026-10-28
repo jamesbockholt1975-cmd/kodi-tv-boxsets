@@ -5,4 +5,7 @@
 import ctxutil
 
 if __name__ == "__main__":
-    ctxutil.run_plugin(action="play_next", bid=ctxutil.current_bid())
+    if ctxutil.in_watch_order():
+        ctxutil.run_plugin(action="play_next", bid=ctxutil.current_bid(), watch=1)
+    else:
+        ctxutil.run_plugin(action="play_next", bid=ctxutil.current_bid())

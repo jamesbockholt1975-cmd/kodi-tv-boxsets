@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.14.0 (alpha)
+- **Crossover episodes in the watch order.** A watch-order entry can now be a single episode or a run of
+  episodes of a season, not only a whole season or a movie. New right-click entry inside the watch order:
+  **Add episodes (crossovers)...** - pick the show, the season and the episodes (consecutive ones become one
+  entry). If the season is already in the order (as a whole season, or in parts), its entry is **split in
+  place** around the new one: `Show A S3 up to E7`, `S3E8-E9` (the crossover), `S3E10+`, so no episode is
+  listed twice. A crossover at the very start or end of a season leaves no empty part.
+- A single episode plays directly; a run of several is a folder listing its episodes (each playable). Parts show
+  their own progress. Play next unwatched episode, Move up/down, Place after and Remove all work on parts.
+- Adding seasons or "Fill the watch order from this boxset" skip a season that already has any entry, so
+  splitting never produces a duplicate whole season.
+- Stored as optional `first` / `last` on the entry in `boxsets.json` (a missing `first` means "from the
+  start", a missing `last` "to the end"). Whole-season entries from 0.13.0 are unchanged. No skin update.
+- Tests: 441 checks.
+
+## 0.13.0 (alpha)
+- **Watch order (cross-show support).** Each boxset can have a watch order: whole seasons of its shows and its
+  movies in a sequence you choose, so one show can come back later (Show A S1, Show B S1, a film, Show A S2).
+  Right-click inside a boxset > **Watch order (seasons and movies)...** opens it. Inside it:
+  **Add seasons and movies to the watch order...** (pick from a list), **Fill the watch order from this
+  boxset** (everything, in the boxset's order), **Move up / Move down**, **Place after another item...**,
+  **Remove from this boxset** (here it removes the entry from the watch order only) and **Play next unwatched
+  episode** (plays the first unwatched episode of the first season in the order that has one, or the first
+  unwatched movie). A season opens Kodi's own season screen; a movie plays and carries the MOVIE tag.
+- The boxset's ordinary order and membership are never changed by the watch order. Seasons of a show that
+  leaves the boxset drop out of the view (and come back if it returns). Seasons Kodi doesn't have show as
+  "not in library". Stored as `watch` in `boxsets.json` (format 3, no migration); backups and merges carry it.
+- Needs no skin update.
+- Tests: 423 checks.
+
 ## 0.12.2 (alpha)
 - **Fix: the movie marker now shows in InfoWall / Poster / Wall views.** Estuary draws no title under a poster
   in those views (only the picture), so a `[Movie]` text label could not appear there. Movies in a boxset are

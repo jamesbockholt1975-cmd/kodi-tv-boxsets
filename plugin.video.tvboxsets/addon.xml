@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.12.2" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.14.0" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
@@ -15,23 +15,39 @@
       </item>
       <item library="ctx_move_up.py">
         <label>Move up</label>
-        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)] + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
       </item>
       <item library="ctx_move_down.py">
         <label>Move down</label>
-        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)] + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
       </item>
       <item library="ctx_place.py">
         <label>Place after another item...</label>
-        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)] + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
       </item>
       <item library="context_remove.py">
         <label>Remove from this boxset</label>
-        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)] + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+      </item>
+      <item library="ctx_watch_open.py">
+        <label>Watch order (seasons and movies)...</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open) + String.IsEmpty(ListItem.Property(boxset_action))</visible>
+      </item>
+      <item library="ctx_watch_add.py">
+        <label>Add seasons and movies to the watch order...</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch)</visible>
+      </item>
+      <item library="ctx_watch_add_eps.py">
+        <label>Add episodes (crossovers)...</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch)</visible>
+      </item>
+      <item library="ctx_watch_fill.py">
+        <label>Fill the watch order from this boxset</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch)</visible>
       </item>
       <item library="ctx_play_next.py">
         <label>Play next unwatched episode</label>
-        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open)</visible>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)]</visible>
       </item>
       <item library="ctx_add_shows.py">
         <label>Add shows to this boxset...</label>
@@ -43,7 +59,7 @@
       </item>
       <item library="ctx_menu.py">
         <label>Boxsets menu (create, backup, tools...)</label>
-        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=open)</visible>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)]</visible>
       </item>
     </menu>
   </extension>
@@ -58,7 +74,13 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.12.2 (alpha)
+    <news>v0.14.0 (alpha)
+- Crossover episodes: the watch order can now hold single episodes or runs of episodes, not just whole seasons. Right-click inside the watch order > "Add episodes (crossovers)...", pick the show, season and episodes. If that season is already in the order it is split around them in place (episodes 1-7, the crossover 8-9, then 10 onwards). Arrange, remove and "Play next unwatched episode" work with the parts
+
+v0.13.0 (alpha)
+- New: a watch order for each boxset. Arrange whole seasons of its shows and its movies in any sequence, for example Show A season 1, Show B season 1, a film, Show A season 2. Right-click inside a boxset > "Watch order (seasons and movies)..." then add seasons, Move up/down, Place after, Remove, and "Play next unwatched episode" follows it. Your normal boxset order is not changed
+
+v0.12.2 (alpha)
 - Fix: movies inside a boxset now show a blue "MOVIE" tag in the corner of their poster. Estuary's InfoWall, Poster and Wall views draw no title under a poster, so the text label could not show there. The skin copy needs the update once: Boxsets menu > "Update ... add the home widget and library badges"
 
 v0.12.1 (alpha)

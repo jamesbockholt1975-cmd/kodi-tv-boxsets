@@ -11,6 +11,7 @@ ENABLED = set()
 RPC_LOG = []
 LIB = []        # TV shows returned by VideoLibrary.GetTVShows
 MOVIES = []     # movies returned by VideoLibrary.GetMovies
+SEASONS = {}    # tvshowid -> seasons returned by VideoLibrary.GetSeasons
 EPISODES = {}   # tvshowid -> episodes returned by VideoLibrary.GetEpisodes
 TAGS = {}       # {"tvshow": [labels], "movie": [labels]} returned by VideoLibrary.GetTags
 
@@ -72,9 +73,13 @@ def executeJSONRPC(request):
         return json.dumps({"result": {"moviedetails": movie}})
     if method == "VideoLibrary.GetEpisodes":
         eps = EPISODES.get(params["tvshowid"], [])
+        if "season" in params:
+            eps = [e for e in eps if e.get("season") == params["season"]]
         if params.get("filter"):  # unwatched, real seasons only
             eps = [e for e in eps if e.get("playcount", 0) == 0 and e.get("season", 1) > 0]
         return json.dumps({"result": {"episodes": eps}})
+    if method == "VideoLibrary.GetSeasons":
+        return json.dumps({"result": {"seasons": SEASONS.get(params["tvshowid"], [])}})
     if method == "VideoLibrary.GetTags":
         return json.dumps({"result": {"tags": [
             {"tagid": i, "label": l} for i, l in enumerate(TAGS.get(params["type"], []))]}})

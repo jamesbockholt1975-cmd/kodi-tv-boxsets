@@ -259,6 +259,8 @@ def merge(current, incoming):
             for key in ART_KEYS:
                 if not target.get(key) and bs.get(key):
                     target[key] = bs[key]
+            if bs.get("watch") and not target.get("watch"):
+                target["watch"] = copy.deepcopy(bs["watch"])
             if bs.get("rules") and not target.get("rules"):
                 target["rules"] = copy.deepcopy(bs["rules"])
         else:

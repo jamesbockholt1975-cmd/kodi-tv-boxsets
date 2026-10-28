@@ -16,6 +16,10 @@ def notify(message):
 
 
 def main():
+    import ctxutil
+    if ctxutil.in_watch_order():  # in the watch order, Remove takes it out of the order only
+        ctxutil.run_plugin(action="watch_remove", bid=ctxutil.current_bid(), key=ctxutil.current_key())
+        return
     path = xbmc.getInfoLabel("Container.FolderPath")
     bid = parse_qs(urlparse(path).query).get("bid", [""])[0]
     title = xbmc.getInfoLabel("ListItem.Property(boxset_title)") or xbmc.getInfoLabel("ListItem.Title")

@@ -20,6 +20,7 @@ import rules
 import skinpatch
 import store
 import tagsync
+import watchorder
 from library import (Library, is_member, item_stats, jsonrpc, media_of, ordered_entries,
                      ref_for, set_member, smart_matches)
 from store import load, save, show_key
@@ -613,6 +614,346 @@ def place_entry(bid, title, year, media, after=None):
     return True
 
 
+# --------------------------------------------------------------------------
+# Watch order: seasons and movies in a sequence you choose
+# --------------------------------------------------------------------------
+
+def watch_row_label(row):
+    entry = row["entry"]
+    if row["media"] == "movie":
+        return movie_label(entry["title"])
+    return watchorder.entry_label(entry)
+
+
+def open_watch(bid):
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        xbmcplugin.endOfDirectory(HANDLE, succeeded=False)
+        return
+    xbmcplugin.setContent(HANDLE, "tvshows")
+    show_missing = store.setting_bool("show_missing", True)
+    shown = 0
+    for row in watchorder.resolve(bs, Library()):
+        row["bid"] = bid
+        entry, item, season = row["entry"], row["item"], row["season"]
+        is_movie = row["media"] == "movie"
+        if item and season and row.get("episodes"):
+            shown += add_range_item(row, item, season)
+        elif item and (is_movie or season):
+            li = xbmcgui.ListItem(label=watch_row_label(row))
+            art = dict(item.get("art", {}))
+            if season:
+                for kind in ("poster", "fanart", "banner"):
+                    if (season.get("art") or {}).get(kind):
+                        art[kind] = season["art"][kind]
+                if art.get("poster"):
+                    art["thumb"] = art["poster"]
+            li.setArt(art)
+            tag = li.getVideoInfoTag()
+            if is_movie:
+                tag.setMediaType("movie")
+                tag.setTitle(movie_label(item["title"]))
+                li.setProperty("boxset_movie", "true")
+                tag.setPlot(item.get("plot", ""))
+                tag.setPlaycount(1 if (item.get("playcount") or 0) > 0 else 0)
+                target, folder = url(action="play_movie", id=item["movieid"]), False
+            else:
+                tag.setMediaType("season")
+                tag.setTitle(watchorder.entry_label(entry))
+                tag.setTvShowTitle(item["title"])
+                tag.setSeason(entry.get("season", 1))
+                tag.setPlot(item.get("plot", ""))
+                apply_progress(li, tag, season.get("episode", 0) or 0, season.get("watchedepisodes", 0) or 0)
+                target = "videodb://tvshows/titles/{}/{}/".format(item["tvshowid"], entry.get("season", 1))
+                folder = True
+            if item.get("year"):
+                tag.setYear(int(item["year"]))
+            li.setProperty("boxset_title", entry["title"])
+            li.setProperty("boxset_key", row["key"])
+            xbmcplugin.addDirectoryItem(HANDLE, target, li, folder)
+            shown += 1
+        elif show_missing:
+            li = xbmcgui.ListItem(label="[COLOR grey]{} (not in library)[/COLOR]".format(
+                watchorder.entry_label(entry)))
+            icon = "DefaultMovies.png" if is_movie else "DefaultTVShows.png"
+            li.setArt({"icon": icon, "thumb": icon})
+            tag = li.getVideoInfoTag()
+            tag.setMediaType("movie" if is_movie else "season")
+            tag.setTitle(watchorder.entry_label(entry))
+            tag.setPlot("This is in the watch order but isn't in your Kodi library at the moment.")
+            li.setProperty("boxset_title", entry["title"])
+            li.setProperty("boxset_key", row["key"])
+            xbmcplugin.addDirectoryItem(HANDLE, url(action="missing", title=entry["title"]), li, False)
+            shown += 1
+    if not shown:
+        action_item("[B]The watch order is empty: press here to add seasons and movies[/B]",
+                    menu=True, action="watch_add", bid=bid)
+    xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
+    xbmcplugin.endOfDirectory(HANDLE)
+
+
+def episode_label(item, ep):
+    return "{} - S{}E{}: {}".format(item["title"], ep.get("season", 0), ep.get("episode", 0),
+                                    ep.get("title", ""))
+
+
+def episode_item(item, ep, label=None):
+    """A playable episode row (used for crossover entries)."""
+    li = xbmcgui.ListItem(label=label or episode_label(item, ep))
+    art = dict(item.get("art", {}))
+    thumb = (ep.get("art") or {}).get("thumb")
+    if thumb:
+        art["thumb"] = thumb
+    elif art.get("poster"):
+        art["thumb"] = art["poster"]
+    li.setArt(art)
+    tag = li.getVideoInfoTag()
+    tag.setMediaType("episode")
+    tag.setTitle(label or episode_label(item, ep))
+    tag.setTvShowTitle(item["title"])
+    tag.setSeason(ep.get("season", 0))
+    tag.setEpisode(ep.get("episode", 0))
+    tag.setPlot(ep.get("plot", ""))
+    tag.setPlaycount(1 if (ep.get("playcount") or 0) > 0 else 0)
+    return li
+
+
+def add_range_item(row, item, season):
+    """One row for a crossover entry: a playable episode, or a folder when it holds several."""
+    entry, eps = row["entry"], row["episodes"]
+    if len(eps) == 1:
+        li = episode_item(item, eps[0])
+        target, folder = url(action="play_episode", id=eps[0]["episodeid"]), False
+    else:
+        li = xbmcgui.ListItem(label=watchorder.entry_label(entry))
+        art = dict(item.get("art", {}))
+        if art.get("poster"):
+            art["thumb"] = art["poster"]
+        li.setArt(art)
+        tag = li.getVideoInfoTag()
+        tag.setMediaType("season")
+        tag.setTitle(watchorder.entry_label(entry))
+        tag.setTvShowTitle(item["title"])
+        tag.setSeason(entry.get("season", 1))
+        tag.setPlot(item.get("plot", ""))
+        apply_progress(li, tag, len(eps), sum(1 for e in eps if (e.get("playcount") or 0) > 0))
+        target, folder = url(action="wo_range", bid=row.get("bid", ""), key=row["key"]), True
+    li.setProperty("boxset_title", entry["title"])
+    li.setProperty("boxset_key", row["key"])
+    xbmcplugin.addDirectoryItem(HANDLE, target, li, folder)
+    return 1
+
+
+def open_range(bid, key):
+    """The episodes of a crossover entry that holds several."""
+    data = load()
+    bs = data.get(bid)
+    xbmcplugin.setContent(HANDLE, "episodes")
+    if bs:
+        for row in watchorder.resolve(bs, Library()):
+            if row["key"] == key and row.get("episodes"):
+                for ep in row["episodes"]:
+                    xbmcplugin.addDirectoryItem(HANDLE, url(action="play_episode", id=ep["episodeid"]),
+                                                episode_item(row["item"], ep), False)
+    xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
+    xbmcplugin.endOfDirectory(HANDLE)
+
+
+def go_watch(bid):
+    """Open the watch order of a boxset (used by the right-click entry)."""
+    xbmc.executebuiltin("Container.Update({})".format(url(action="watch", bid=bid)))
+
+
+def _watch_visible(bs):
+    return [r["entry"] for r in watchorder.resolve(bs, Library())]
+
+
+def watch_add(bid):
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    lib = Library()
+    have = {watchorder.entry_key(e) for e in bs.get("watch", [])}
+    started = watchorder.seasons_with_entries(bs.get("watch", []))
+    options = [(e, item, season) for e, item, season in watchorder.candidates(bs, lib)
+               if watchorder.entry_key(e) not in have and watchorder.season_id(e) not in started]
+    if not options:
+        notify("Everything in this boxset is already in the watch order"
+               if bs.get("watch") else "Add some shows or movies to the boxset first")
+        return
+    labels = []
+    for e, item, season in options:
+        if season:
+            labels.append("{} ({} episodes)".format(watchorder.entry_label(e), season.get("episode", 0)))
+        else:
+            labels.append(watchorder.entry_label(e))
+    chosen = xbmcgui.Dialog().multiselect("Add to the watch order of '{}'".format(bs["name"]), labels)
+    if not chosen:
+        return
+    entries, added = watchorder.add_entries(_watch_visible(bs), [options[i][0] for i in sorted(chosen)])
+    bs["watch"] = entries
+    save(data)
+    notify("Added {} to the watch order".format(added))
+
+
+def watch_add_episodes(bid):
+    """Crossovers: pick a show, a season and some episodes; they go into the order as their own
+    entries, splitting the season's entry around them if it is already in the order."""
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    lib = Library()
+    shows = [(ref, item) for ref, item in ordered_entries(bs, lib) if item and media_of(ref) != "movie"]
+    if not shows:
+        notify("Add some TV shows to the boxset first")
+        return
+    pick = xbmcgui.Dialog().select("Episodes from which show?", [ref["title"] for ref, _ in shows])
+    if pick < 0:
+        return
+    ref, item = shows[pick]
+    seasons = watchorder.seasons_of(item)
+    if not seasons:
+        notify("Kodi has no seasons for '{}'".format(ref["title"]))
+        return
+    pick = xbmcgui.Dialog().select("{}: which season?".format(ref["title"]), [
+        "{} ({} episodes)".format(watchorder.season_name(s["season"]), s.get("episode", 0)) for s in seasons])
+    if pick < 0:
+        return
+    number = seasons[pick]["season"]
+    episodes = watchorder.episodes_of(item, number)
+    if not episodes:
+        notify("Kodi has no episodes for that season")
+        return
+    chosen = xbmcgui.Dialog().multiselect("{} - {}: pick the episodes".format(
+        ref["title"], watchorder.season_name(number)), [
+        "E{}. {}".format(e.get("episode", 0), e.get("title", "")) for e in episodes])
+    if not chosen:
+        return
+    numbers = [episodes[i].get("episode", 0) for i in chosen]
+    spans = watchorder.runs(numbers)
+    base = {"title": ref["title"], "year": ref.get("year", 0) or 0}
+    entries, added = watchorder.insert_runs(_watch_visible(bs), base, number, spans,
+                                            max(e.get("episode", 0) for e in episodes))
+    if not added:
+        notify("Those episodes are already in the watch order")
+        return
+    bs["watch"] = entries
+    save(data)
+    notify("Added {} entr{} to the watch order".format(added, "y" if added == 1 else "ies"))
+
+
+def watch_fill(bid):
+    """Append every season and movie that isn't in the watch order yet, in the boxset's order."""
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    current = _watch_visible(bs)
+    started = watchorder.seasons_with_entries(current)
+    new = [e for e, _, _ in watchorder.candidates(bs, Library()) if watchorder.season_id(e) not in started]
+    entries, added = watchorder.add_entries(current, new)
+    if not added:
+        notify("The watch order already has everything")
+        return
+    bs["watch"] = entries
+    save(data)
+    notify("Added {} to the watch order".format(added))
+
+
+def watch_move(bid, key, delta):
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return False
+    out = watchorder.moved(_watch_visible(bs), key, delta)
+    if out is None:
+        notify("It is already {}".format("first" if delta < 0 else "last"))
+        return False
+    bs["watch"] = out
+    save(data)
+    return True
+
+
+def watch_place(bid, key, after=None):
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return False
+    entries = _watch_visible(bs)
+    idx = watchorder.index_of(entries, key)
+    if idx is None:
+        notify("Couldn't find that in the watch order")
+        return False
+    others = [e for e in entries if watchorder.entry_key(e) != key]
+    if not others:
+        notify("There is nothing else in the watch order to place it next to")
+        return False
+    if after is None:
+        choices = ["[At the start]"] + ["{}. {}".format(i + 1, watchorder.entry_label(e))
+                                        for i, e in enumerate(others)]
+        pick = xbmcgui.Dialog().select("Place '{}' after...".format(watchorder.entry_label(entries[idx])),
+                                       choices, preselect=min(idx, len(others)))
+        if pick < 0:
+            return False
+        after = pick - 1
+    bs["watch"] = watchorder.placed(entries, key, after)
+    save(data)
+    return True
+
+
+def watch_remove(bid, key):
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    entries = _watch_visible(bs)
+    out = watchorder.removed(entries, key)
+    if len(out) == len(entries):
+        notify("Couldn't find that in the watch order")
+        return
+    bs["watch"] = out
+    save(data)
+    notify("Removed from the watch order")
+
+
+def next_unwatched_in_season(tvshowid, season):
+    resp = jsonrpc("VideoLibrary.GetEpisodes", {
+        "tvshowid": tvshowid, "season": season, "properties": ["season", "episode"],
+        "filter": {"field": "playcount", "operator": "is", "value": "0"}})
+    episodes = resp.get("result", {}).get("episodes", [])
+    return min(episodes, key=lambda e: e.get("episode", 0))["episodeid"] if episodes else None
+
+
+def play_next_watch(bid):
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    for row in watchorder.resolve(bs, Library()):
+        item = row["item"]
+        if not item:
+            continue
+        if row["media"] == "movie":
+            if (item.get("playcount") or 0) == 0:
+                play_movie(item["movieid"])
+                return
+            continue
+        if not row["season"]:
+            continue
+        if row.get("episodes"):  # a crossover entry: its own episodes only
+            nxt = next((e for e in row["episodes"] if (e.get("playcount") or 0) == 0), None)
+            episode_id = nxt["episodeid"] if nxt else None
+        else:
+            episode_id = next_unwatched_in_season(item["tvshowid"], row["entry"].get("season", 1))
+        if episode_id:
+            jsonrpc("Player.Open", {"item": {"episodeid": episode_id}, "options": {"resume": True}})
+            return
+    notify("Everything in the watch order has been watched")
+
+
 def next_unwatched_episode(tvshowid):
     resp = jsonrpc("VideoLibrary.GetEpisodes", {
         "tvshowid": tvshowid,
@@ -648,6 +989,10 @@ def play_next(bid):
                                     "options": {"resume": True}})
             return
     notify("Everything in this boxset has been watched")
+
+
+def play_episode(episode_id):
+    jsonrpc("Player.Open", {"item": {"episodeid": int(episode_id)}, "options": {"resume": True}})
 
 
 def play_movie(movie_id):
@@ -1171,7 +1516,7 @@ def rebuild_skin():
 # Router
 # --------------------------------------------------------------------------
 
-NO_REFRESH = {"play_next", "play_movie", "missing", "export", "diagnostics"}
+NO_REFRESH = {"watch_open", "play_episode", "play_next", "play_movie", "missing", "export", "diagnostics"}
 
 
 def router(paramstring):
@@ -1193,6 +1538,10 @@ def router(paramstring):
         list_boxsets(widget=True, flt=p.get("filter"))
     elif action == "open":
         open_boxset(p["bid"])
+    elif action == "watch":
+        open_watch(p["bid"])
+    elif action == "wo_range":
+        open_range(p["bid"], p.get("key", ""))
     else:
         follow = None
         if action == "create":
@@ -1216,7 +1565,7 @@ def router(paramstring):
         elif action == "reorder":
             reorder_shows(p["bid"])
         elif action == "play_next":
-            play_next(p["bid"])
+            play_next_watch(p["bid"]) if p.get("watch") else play_next(p["bid"])
         elif action == "play_movie":
             play_movie(p["id"])
         elif action == "mark":
@@ -1245,6 +1594,25 @@ def router(paramstring):
             refresh_rows()
         elif action in ("menu", "tools"):
             global_menu()
+        elif action == "watch_open":
+            go_watch(p["bid"])
+        elif action == "watch_add":
+            watch_add(p["bid"])
+        elif action == "watch_add_eps":
+            watch_add_episodes(p["bid"])
+        elif action == "play_episode":
+            play_episode(p["id"])
+        elif action == "watch_fill":
+            watch_fill(p["bid"])
+        elif action == "watch_remove":
+            watch_remove(p["bid"], p.get("key", ""))
+        elif action == "watch_place":
+            watch_place(p["bid"], p.get("key", ""))
+        elif action == "watch_move":
+            control = xbmc.getInfoLabel("System.CurrentControlID")
+            delta = int(p.get("delta", "0") or 0)
+            if watch_move(p["bid"], p.get("key", ""), delta):
+                follow = (control, delta)
         elif action == "place":
             place_entry(p["bid"], p.get("title", ""), p.get("year", 0), p.get("media", "tvshow"))
         elif action == "move":

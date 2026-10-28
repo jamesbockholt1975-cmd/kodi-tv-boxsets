@@ -649,7 +649,7 @@ ctx_items = list(addon_root.iter("item"))
 ok(all(os.path.exists(os.path.join(ADDON, i.get("library"))) for i in ctx_items), "every right-click item's script file exists (%d items)" % len(ctx_items))
 ok(len({i.findtext("label") for i in ctx_items}) == len(ctx_items), "right-click labels are all different")
 inside = [i for i in ctx_items if i.get("library") != "context.py"]
-ok(all("action=open" in i.findtext("visible") for i in inside), "in-boxset items only show while browsing a boxset")
+ok(all(("action=open" in i.findtext("visible") or "action=watch" in i.findtext("visible")) for i in inside), "in-boxset items only show while browsing a boxset or its watch order")
 ok(all("boxset_action" in i.findtext("visible") for i in inside if i.get("library") in ("ctx_move_up.py", "ctx_move_down.py", "context_remove.py")), "Move/Remove are hidden on placeholder rows")
 
 print("== place an item after another")
@@ -677,6 +677,127 @@ ok(all(x in cmdp for x in ("action=place", "bid=mv", "media=movie")) and "Film" 
 xbmc.INFO["ListItem.Title"] = ML("Film One"); xbmc.INFO["ListItem.Property(boxset_title)"] = "Film One"
 ok("title=Film+One&" in run_script("ctx_place.py") + "&" and "%5B" not in run_script("ctx_move_up.py"), "right-click scripts send the real title, not the labelled one")
 ok(any(i.get("library") == "ctx_place.py" and "boxset_action" in i.findtext("visible") for i in ctx_items), "Place is hidden on placeholder rows")
+
+print("== watch order: seasons and movies in a sequence you choose")
+import watchorder  # noqa: E402
+xbmc.SEASONS = {1: [{"season": 1, "episode": 10, "watchedepisodes": 4, "art": {"poster": "pA-s1"}},
+                    {"season": 2, "episode": 6, "watchedepisodes": 0, "art": {}}],
+                2: [{"season": 1, "episode": 8, "watchedepisodes": 8, "art": {}}],
+                3: [{"season": 0, "episode": 2, "watchedepisodes": 0, "art": {}}, {"season": 1, "episode": 5, "watchedepisodes": 0, "art": {}}]}
+store.save({"wo": box("Saga", [A, G, F1])})
+wcands = watchorder.candidates(store.load()["wo"], library.Library())
+ok([watchorder.entry_label(e) for e, _, _ in wcands] == ["Alpha - Season 1", "Alpha - Season 2", "Film One [Movie]", "Gamma - Specials", "Gamma - Season 1"],
+   "candidates: every season of each show (specials too) and the movies, in the boxset's order")
+wlist = lambda: [i for i in run("action=watch&bid=wo")]  # noqa: E731
+wlabels = lambda: [watchorder.entry_label(e) for e in store.load()["wo"].get("watch", [])]  # noqa: E731
+wi = wlist()
+ok(len(wi) == 1 and wi[0][0].props.get("boxset_action") == "1" and "action=watch_add" in wi[0][1], "an empty watch order offers a way in")
+runq("action=watch_add&bid=wo", multiselect=[[4, 0, 2]])
+ok(wlabels() == ["Alpha - Season 1", "Film One [Movie]", "Gamma - Season 1"], "added the chosen seasons and movies (in list order)")
+ok(store.load()["wo"]["shows"] == [A, G, F1], "the boxset's own membership is untouched")
+wi = wlist()
+ok([wi[0][0].label, wi[2][0].label] == ["Alpha - Season 1", "Gamma - Season 1"] and wi[1][0].label.startswith("Film One"), "the watch order lists them in the saved order")
+ok(wi[0][1] == "videodb://tvshows/titles/1/1/" and wi[0][2] is True and wi[2][1] == "videodb://tvshows/titles/3/1/", "a season links to Kodi's own season screen")
+ok(wi[1][2] is False and "action=play_movie&id=10" in wi[1][1] and wi[1][0].props.get("boxset_movie") == "true", "a movie plays, and is marked for the MOVIE tag")
+ok(wi[0][0].props["TotalEpisodes"] == "10" and wi[0][0].props["WatchedEpisodes"] == "4" and wi[0][0].art.get("poster") == "pA-s1", "a season shows its own progress and poster")
+ok(wi[0][0].props["boxset_key"] == "season:alpha|2010|1" and wi[1][0].props["boxset_key"] == "movie:film one|2012", "each row carries its key for the right-click scripts")
+runq("action=watch_add&bid=wo", multiselect=[[0]])
+ok(wlabels() == ["Alpha - Season 1", "Film One [Movie]", "Gamma - Season 1", "Alpha - Season 2"], "adding later puts new entries at the end; the dialog no longer offers what is already in")
+runq("action=watch_move&bid=wo&key=season:alpha|2010|2&delta=-1")
+ok(wlabels()[2:] == ["Alpha - Season 2", "Gamma - Season 1"], "move up")
+ok(any(c.startswith("Control.Move") for c in xbmc.BUILTINS), "the highlight follows the moved row")
+runq("action=watch_move&bid=wo&key=season:alpha|2010|1&delta=-1")
+ok(wlabels()[0] == "Alpha - Season 1", "already first: nothing changes")
+runq("action=watch_place&bid=wo&key=season:alpha|2010|2", select=[1])  # [start], 1 Alpha S1 ...
+ok(wlabels() == ["Alpha - Season 1", "Alpha - Season 2", "Film One [Movie]", "Gamma - Season 1"], "place a season straight after another")
+runq("action=watch_place&bid=wo&key=movie:film one|2012", select=[0])
+ok(wlabels()[0] == "Film One [Movie]", "or at the start")
+runq("action=watch_place&bid=wo&key=movie:film one|2012", select=[-1])
+ok(wlabels()[0] == "Film One [Movie]", "cancelling the place dialog changes nothing")
+runq("action=watch_remove&bid=wo&key=season:gamma|2020|1")
+ok("Gamma - Season 1" not in wlabels() and store.load()["wo"]["shows"] == [A, G, F1], "removing from the watch order keeps the show in the boxset")
+runq("action=watch_fill&bid=wo")
+ok(wlabels() == ["Film One [Movie]", "Alpha - Season 1", "Alpha - Season 2", "Gamma - Specials", "Gamma - Season 1"], "'Fill from boxset' appends everything missing")
+runq("action=watch_fill&bid=wo")
+ok(len(wlabels()) == 5, "filling again adds nothing")
+d = store.load(); d["wo"]["shows"] = [A, F1]; store.save(d)
+ok(not any("Gamma" in i[0].label for i in wlist()), "when a show leaves the boxset its seasons leave the watch order view")
+d = store.load(); d["wo"]["shows"] = [A, G, F1]; store.save(d)
+ok(any("Gamma" in i[0].label for i in wlist()), "...and come back in the same place if it returns before the order is changed")
+d = store.load(); d["wo"]["watch"].append({"title": "Alpha", "year": 2010, "season": 9}); store.save(d)
+miss = [i for i in wlist() if "Season 9" in i[0].label]
+ok(len(miss) == 1 and "not in library" in miss[0][0].label, "a season the library doesn't have is shown as missing")
+d = store.load(); d["wo"]["watch"].pop(); store.save(d)
+# play next in the watch order
+xbmc.EPISODES = {1: [{"episodeid": 101, "season": 1, "episode": 1, "playcount": 1}, {"episodeid": 102, "season": 1, "episode": 2, "playcount": 0},
+                     {"episodeid": 201, "season": 2, "episode": 1, "playcount": 0}]}
+d = store.load(); d["wo"]["watch"] = [{"title": "Alpha", "year": 2010, "season": 2}, {"title": "Alpha", "year": 2010, "season": 1}]; store.save(d)
+xbmc.RPC_LOG.clear(); runq("action=play_next&bid=wo&watch=1")
+opened = [p for m, p in xbmc.RPC_LOG if m == "Player.Open"]
+ok(opened and opened[0]["item"] == {"episodeid": 201}, "play next follows the watch order (season 2 first here)")
+# right-click scripts
+xbmc.INFO.clear()
+xbmc.INFO.update({"Container.FolderPath": "plugin://plugin.video.tvboxsets/?action=watch&bid=wo", "ListItem.Title": "Alpha - Season 2",
+                  "ListItem.Property(boxset_key)": "season:alpha|2010|2", "ListItem.DBType": "season"})
+cmd_up = run_script("ctx_move_up.py")
+ok(all(x in cmd_up for x in ("action=watch_move", "bid=wo", "delta=-1")) and "key=season%3Aalpha%7C2010%7C2" in cmd_up, "Move up in the watch order sends the row's key")
+ok("action=watch_place" in run_script("ctx_place.py"), "Place sends the watch order action")
+ok("action=watch_remove" in run_script("context_remove.py") and "key=season" in xbmc.BUILTINS[-1], "Remove in the watch order takes it out of the order only")
+ok("watch=1" in run_script("ctx_play_next.py"), "Play next knows it is in the watch order")
+ok("action=watch_add" in run_script("ctx_watch_add.py") and "action=watch_fill" in run_script("ctx_watch_fill.py"), "Add and Fill scripts")
+xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=open&bid=wo"
+ok("action=watch_open" in run_script("ctx_watch_open.py"), "'Watch order...' is reachable from inside a boxset")
+xbmc.BUILTINS.clear(); runq("action=watch_open&bid=wo")
+ok(any(c.startswith("Container.Update(") and "action=watch&bid=wo" in c for c in xbmc.BUILTINS) and "Container.Refresh" not in xbmc.BUILTINS, "opening it uses Container.Update and no refresh")
+vis = {i.get("library"): i.findtext("visible") for i in addon_root.iter("item")}
+ok("action=watch" in vis["ctx_watch_add.py"] and "action=open" not in vis["ctx_watch_add.py"], "Add/Fill entries only show inside the watch order")
+ok("action=open" in vis["ctx_watch_open.py"], "'Watch order...' shows inside a boxset")
+bk = store.dump_text({"w": dict(box("W", [A]), watch=[{"title": "Alpha", "year": 2010, "season": 1}])})
+ok(json.loads(bk)["boxsets"]["w"]["watch"][0]["season"] == 1, "the watch order is saved in the data file")
+cur = {"x": box("W", [A])}; store.merge(cur, {"w": dict(box("W", [A]), watch=[{"title": "Alpha", "year": 2010, "season": 1}])})
+ok(cur["x"].get("watch") and cur["x"]["watch"][0]["season"] == 1, "importing a backup brings a watch order into a boxset that has none")
+
+print("== watch order: crossover episodes")
+xbmc.EPISODES = {1: [{"episodeid": 100 + n, "season": 1, "episode": n, "title": "T%d" % n, "playcount": 1 if n <= 4 else 0, "plot": "", "art": {}} for n in range(1, 11)]
+                 + [{"episodeid": 200 + n, "season": 2, "episode": n, "title": "U%d" % n, "playcount": 0, "plot": "", "art": {}} for n in range(1, 7)]}
+d = store.load(); d["wo"]["watch"] = [{"title": "Alpha", "year": 2010, "season": 1}, {"title": "Film One", "year": 2012, "type": "movie"}]; store.save(d)
+runq("action=watch_add_eps&bid=wo", select=[0, 0], multiselect=[[7, 8]])
+ok(wlabels() == ["Alpha - S1 up to E7", "Alpha - S1E8-E9", "Alpha - S1E10+", "Film One [Movie]"], "a crossover splits the season's entry around it: before, the crossover, after")
+wi = wlist()
+ok(wi[1][2] is True and "action=wo_range" in wi[1][1] and wi[1][0].props["TotalEpisodes"] == "2", "a range of several episodes is a folder with its own progress")
+ok(wi[2][2] is False and "action=play_episode&id=110" in wi[2][1] and wi[2][0].tag.d.get("MediaType") == "episode", "a single episode plays directly")
+ok(wi[0][0].props["TotalEpisodes"] == "7" and wi[0][0].props["WatchedEpisodes"] == "4", "the first part counts only its own episodes (7, 4 watched)")
+runq("action=watch_add_eps&bid=wo", select=[0, 0], multiselect=[[2]])
+ok(wlabels()[:3] == ["Alpha - S1 up to E2", "Alpha - S1E3", "Alpha - S1E4-E7"], "an episode inside an existing part splits that part again")
+n_before = wlabels()
+runq("action=watch_add_eps&bid=wo", select=[0, 0], multiselect=[[2]])
+ok(wlabels() == n_before, "adding the same episode again changes nothing")
+runq("action=watch_add&bid=wo", multiselect=[None])
+ok("Alpha - Season 1" not in D.LAST_MULTI["options"] and any(o.startswith("Alpha - Season 2") for o in D.LAST_MULTI["options"]), "the season dialog no longer offers a season that already has entries")
+runq("action=watch_fill&bid=wo")
+ok(not any(l == "Alpha - Season 1" for l in wlabels()) and "Alpha - Season 2" in wlabels(), "'Fill' skips a season that is already in the order, in parts")
+kk = "season:alpha|2010|1|8-9"
+rv = run("action=wo_range&bid=wo&key=" + kk)
+ok(len(rv) == 2 and all(i[2] is False and "action=play_episode" in i[1] for i in rv) and rv[0][0].label.startswith("Alpha - S1E8"), "opening a range lists its episodes, playable")
+d = store.load(); d["wo"]["watch"] = [e for e in d["wo"]["watch"] if watchorder.entry_key(e) != "season:alpha|2010|2"]; store.save(d)
+d = store.load(); d["wo"]["watch"] = [e for e in d["wo"]["watch"] if e.get("type") == "movie" or e.get("season") == 1]; store.save(d)
+xbmc.RPC_LOG.clear(); runq("action=play_next&bid=wo&watch=1")
+opened = [p for m, p in xbmc.RPC_LOG if m == "Player.Open"]
+ok(opened and opened[0]["item"] == {"episodeid": 105}, "play next goes through the parts in order: episode 5 is the first unwatched")
+runq("action=watch_remove&bid=wo&key=" + kk)
+ok("Alpha - S1E8-E9" not in wlabels() and "Alpha - S1E10+" in wlabels(), "removing a part leaves the others where they are")
+b, c = {"title": "A", "year": 1}, [{"title": "A", "year": 1, "season": 3}]
+lab = lambda es: [watchorder.entry_label(e) for e in es]  # noqa: E731
+ok(lab(watchorder.insert_runs(c, b, 3, [(1, 2)], 22)[0]) == ["A - S3E1-E2", "A - S3E3+"], "a crossover at the start leaves no empty part before it")
+ok(lab(watchorder.insert_runs(c, b, 3, [(21, 22)], 22)[0]) == ["A - S3 up to E20", "A - S3E21-E22"], "...and none after it when it runs to the end")
+ok(lab(watchorder.insert_runs([], b, 3, [(8, 9)], 22)[0]) == ["A - S3E8-E9"], "with no entry for the season it is simply added")
+ok(watchorder.runs([9, 8, 12, 8]) == [(8, 9), (12, 12)], "chosen episodes are grouped into consecutive runs")
+xbmc.INFO.clear()
+xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=wo_range&bid=wo&key=x"
+import ctxutil as _cu  # noqa: E402
+ok(not _cu.in_watch_order() and "action=watch" not in xbmc.INFO["Container.FolderPath"], "inside a range folder the watch-order menu entries stay hidden")
+xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=watch&bid=wo"
+ok("action=watch_add_eps" in run_script("ctx_watch_add_eps.py"), "Add episodes script")
 
 print("== 'Boxsets...' on a library show or movie")
 store.save({"a": box("Alpha Manual", [A]), "b": dict(box("Beta Smart", []), rules={"media": "tv", "genre": "Drama"}), "c": box("Gamma Only", [G])})
