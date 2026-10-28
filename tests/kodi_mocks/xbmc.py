@@ -11,9 +11,15 @@ ENABLED = set()
 RPC_LOG = []
 LIB = []        # TV shows returned by VideoLibrary.GetTVShows
 MOVIES = []     # movies returned by VideoLibrary.GetMovies
+SETS = []       # movie sets returned by VideoLibrary.GetMovieSets / GetMovieSetDetails
 SEASONS = {}    # tvshowid -> seasons returned by VideoLibrary.GetSeasons
 EPISODES = {}   # tvshowid -> episodes returned by VideoLibrary.GetEpisodes
 TAGS = {}       # {"tvshow": [labels], "movie": [labels]} returned by VideoLibrary.GetTags
+
+
+class Actor:
+    def __init__(self, name="", role="", order=0, thumbnail=""):
+        self.name, self.role, self.order, self.thumbnail = name, role, order, thumbnail
 
 
 class Monitor:
@@ -78,6 +84,11 @@ def executeJSONRPC(request):
         if params.get("filter"):  # unwatched, real seasons only
             eps = [e for e in eps if e.get("playcount", 0) == 0 and e.get("season", 1) > 0]
         return json.dumps({"result": {"episodes": eps}})
+    if method == "VideoLibrary.GetMovieSets":
+        return json.dumps({"result": {"sets": [{"setid": s["setid"], "title": s["title"], "art": s.get("art", {})} for s in SETS]}})
+    if method == "VideoLibrary.GetMovieSetDetails":
+        s = [s for s in SETS if s["setid"] == params["setid"]][0]
+        return json.dumps({"result": {"setdetails": {"title": s["title"], "art": s.get("art", {}), "movies": s["movies"]}}})
     if method == "VideoLibrary.GetSeasons":
         return json.dumps({"result": {"seasons": SEASONS.get(params["tvshowid"], [])}})
     if method == "VideoLibrary.GetTags":

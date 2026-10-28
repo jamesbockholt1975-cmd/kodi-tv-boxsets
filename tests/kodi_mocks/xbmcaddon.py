@@ -20,6 +20,10 @@ class Addon:
     def getSettingBool(self, key):
         return bool(SETTINGS[key])
 
+    def setSettingBool(self, key, value):
+        SETTINGS[key] = bool(value)
+        return True
+
     def getSettingInt(self, key):
         return int(SETTINGS[key])
 

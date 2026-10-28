@@ -21,6 +21,7 @@ def mkdirs(path):
 
 class File:
     def __init__(self, path, mode="r"):
+        self._path = path
         self._f = open(path, mode, encoding="utf-8")
 
     def write(self, text):
@@ -29,6 +30,11 @@ class File:
 
     def read(self):
         return self._f.read()
+
+    def readBytes(self):
+        self._f.close()
+        with open(self._path, "rb") as raw:
+            return bytearray(raw.read())
 
     def close(self):
         self._f.close()

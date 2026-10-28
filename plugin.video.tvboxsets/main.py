@@ -20,8 +20,11 @@ import rules
 import skinpatch
 import store
 import tagsync
+import collage
+import libnodes
 import watchorder
-from library import (Library, is_member, item_stats, jsonrpc, media_of, ordered_entries,
+import wopack
+from library import (Library, full_details, is_member, item_stats, jsonrpc, media_of, ordered_entries,
                      ref_for, set_member, smart_matches)
 from store import load, save, show_key
 
@@ -138,6 +141,10 @@ def list_boxsets(widget=False, flt=None):
         rows.append({"bid": bid, "bs": bs, "entries": entries, "found": found,
                      "total": total, "watched": watched})
 
+    if flt == "next_up":  # the home screen 'Next up' row: what comes next in each watch order
+        next_up_row(sort_rows([r for r in rows if r["bs"].get("watch")]), lib)
+        return
+
     if flt == "in_progress":  # the home screen 'Continue watching' row shows the shows themselves
         continue_watching(sort_rows([r for r in rows if 0 < r["watched"] < r["total"]]))
         return
@@ -149,6 +156,7 @@ def list_boxsets(widget=False, flt=None):
         missing = len(row["entries"]) - len(found)
 
         li = xbmcgui.ListItem(label=bs["name"])
+        li.setProperty("boxset_tile", bs["name"])  # the skin draws the boxset's name on the poster
         li.setArt(boxset_art(bs, [i for _, i in found]))
         tag = li.getVideoInfoTag()
         tag.setMediaType("tvshow")
@@ -168,6 +176,9 @@ def list_boxsets(widget=False, flt=None):
         li.addContextMenuItems([
             cm("Boxsets menu (create, backup, tools...)", action="menu"),
             cm("Play next unwatched episode", action="play_next", bid=bid),
+            cm("Play all unwatched (queue)...", action="queue", bid=bid),
+            cm("Watch order (seasons and movies)...", action="watch_open", bid=bid),
+            cm("Export the watch order to a file...", action="watch_export", bid=bid),
             cm("Mark everything as watched", action="mark", bid=bid, watched="1"),
             cm("Mark everything as unwatched", action="mark", bid=bid, watched="0"),
             cm("Add shows", action="add", bid=bid),
@@ -187,6 +198,68 @@ def list_boxsets(widget=False, flt=None):
 
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.endOfDirectory(HANDLE)
+
+
+def next_up_row(rows, lib):
+    """One tile per boxset with a watch order: the next unwatched episode or movie, ready to play."""
+    xbmcplugin.setContent(HANDLE, "tvshows")
+    for row in rows:
+        target = watchorder.next_up(row["bs"], lib)
+        if not target:
+            continue
+        li, link = playable_item(target, "Next up in the watch order of '{}'.".format(row["bs"]["name"]))
+        li.setLabel2(row["bs"]["name"])
+        li.setProperty("boxset_tile", row["bs"]["name"])  # the skin draws the boxset's name on the poster
+        xbmcplugin.addDirectoryItem(HANDLE, link, li, False)
+    xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
+    xbmcplugin.endOfDirectory(HANDLE)
+
+
+def playable_item(target, note=""):
+    """(list item, plugin address) for something from watchorder.playables()."""
+    if target[0] == "movie":
+        item = target[1]
+        li = xbmcgui.ListItem(label=movie_label(item["title"]))
+        li.setArt(item.get("art", {}))
+        tag = li.getVideoInfoTag()
+        tag.setMediaType("movie")
+        tag.setTitle(movie_label(item["title"]))
+        tag.setPlot((note + "\n\n" if note else "") + (item.get("plot") or ""))
+        if item.get("year"):
+            tag.setYear(int(item["year"]))
+        tag.setPlaycount(0)
+        li.setProperty("boxset_movie", "true")
+        return li, url(action="play_movie", id=item["movieid"])
+    _, show, ep = target
+    li = episode_item(show, ep)
+    li.getVideoInfoTag().setPlot((note + "\n\n" if note else "") + (ep.get("plot") or ""))
+    return li, url(action="play_episode", id=ep["episodeid"])
+
+
+def queue_play(bid, use_watch_order):
+    """Play everything unwatched in order (or add it to the end of the queue)."""
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    targets = list(watchorder.playables(bs, Library(), use_watch_order))
+    if not targets:
+        notify("Everything in this {} has been watched".format(
+            "watch order" if use_watch_order and bs.get("watch") else "boxset"))
+        return
+    choice = xbmcgui.Dialog().select("{} unwatched item(s) in '{}'".format(len(targets), bs["name"]), [
+        "Play them now, in order", "Add them to the end of the queue"])
+    if choice < 0:
+        return
+    if choice == 0:
+        jsonrpc("Playlist.Clear", {"playlistid": 1})
+    for t in targets:
+        entry = {"movieid": t[1]["movieid"]} if t[0] == "movie" else {"episodeid": t[2]["episodeid"]}
+        jsonrpc("Playlist.Add", {"playlistid": 1, "item": entry})
+    if choice == 0:
+        jsonrpc("Player.Open", {"item": {"playlistid": 1, "position": 0}})
+    else:
+        notify("Added {} item(s) to the queue".format(len(targets)))
 
 
 def continue_watching(rows):
@@ -247,16 +320,12 @@ def open_boxset(bid):
     for ref, item in ordered_entries(bs, lib):
         is_movie = media_of(ref) == "movie"
         if item and not is_movie:
+            item = full_details("tvshow", item)
             li = xbmcgui.ListItem(label=item["title"])
             li.setArt(item.get("art", {}))
             tag = li.getVideoInfoTag()
             tag.setMediaType("tvshow")
-            tag.setTitle(item["title"])
-            tag.setPlot(item.get("plot", ""))
-            if item.get("year"):
-                tag.setYear(int(item["year"]))
-            if item.get("genre"):
-                tag.setGenres(item["genre"])
+            fill_tag(tag, item)
             apply_progress(li, tag, item.get("episode", 0) or 0, item.get("watchedepisodes", 0) or 0)
             # Link straight into Kodi's own library node for the show, so the
             # seasons/episodes screens are the normal native ones.
@@ -266,18 +335,14 @@ def open_boxset(bid):
         elif item and is_movie:
             # Marked as a movie so it stands out among the shows. Only the label changes: the title
             # (which the right-click scripts and Kodi's info use) stays the plain movie title.
+            item = full_details("movie", item)
             li = xbmcgui.ListItem(label=movie_label(item["title"]))
             li.setProperty("boxset_title", item["title"])  # the real title, for the right-click scripts
             li.setProperty("boxset_movie", "true")  # the skin draws a MOVIE tag on the poster
             li.setArt(item.get("art", {}))
             tag = li.getVideoInfoTag()
             tag.setMediaType("movie")
-            tag.setTitle(movie_label(item["title"]))  # skins draw this one, not the list label
-            tag.setPlot(item.get("plot", ""))
-            if item.get("year"):
-                tag.setYear(int(item["year"]))
-            if item.get("genre"):
-                tag.setGenres(item["genre"])
+            fill_tag(tag, item, title=movie_label(item["title"]))  # skins draw this one, not the list label
             tag.setPlaycount(1 if (item.get("playcount") or 0) > 0 else 0)
             xbmcplugin.addDirectoryItem(
                 HANDLE, url(action="play_movie", id=item["movieid"]), li, False)
@@ -346,8 +411,13 @@ def menu_entries():
         ("Import a backup file...", import_backup),
         ("Restore an automatic backup...", restore_auto),
         ("Create boxsets from Kodi tags...", import_from_tags),
+        ("Create boxsets from Kodi movie sets...", import_movie_sets),
+        ("Export a watch order file...", watch_export_pick),
+        ("Import a watch order file...", watch_import),
         ("Write boxsets to Kodi tags...", sync_tags),
         ("Remove boxset tags from Kodi...", tagsync.remove_all),
+        ("Add boxsets to Kodi's library menu (other skins)...", libnodes.enable),
+        ("Remove boxsets from Kodi's library menu...", libnodes.disable),
         ("Refresh the home screen rows", refresh_rows),
         ("Refresh the boxset badges", refresh_badges),
         ("Create a diagnostics report (for bug reports)...", diagnostics_report),
@@ -407,6 +477,59 @@ def add_items(bid, media="tvshow"):
     store.add_refs(bs, [candidates[i] for i in chosen], media)
     save(data)
     notify("Added {} item(s)".format(len(chosen)))
+
+
+def fill_tag(tag, d, title=None):
+    """Put everything Kodi knows about a library show or movie into the list item's info, so the
+    information page (press 'i') shows what it shows for the same item in the normal library."""
+    def put(setter, value, convert=None):
+        if value in (None, "", [], {}, 0):
+            return
+        try:
+            getattr(tag, setter)(convert(value) if convert else value)
+        except Exception as exc:  # noqa: BLE001 - one odd field must not blank the whole item
+            xbmc.log("[TV Boxsets] could not set {} ({!r})".format(setter, exc), xbmc.LOGINFO)
+    put("setTitle", title or d.get("title"))
+    put("setOriginalTitle", d.get("originaltitle"))
+    put("setSortTitle", d.get("sorttitle"))
+    put("setPlot", d.get("plot"))
+    put("setPlotOutline", d.get("plotoutline"))
+    put("setTagLine", d.get("tagline"))
+    put("setYear", d.get("year"), int)
+    put("setPremiered", d.get("premiered"))
+    put("setGenres", d.get("genre"))
+    put("setStudios", d.get("studio"))
+    put("setMpaa", d.get("mpaa"))
+    put("setCountries", d.get("country"))
+    put("setDirectors", d.get("director"))
+    put("setWriters", d.get("writer"))
+    put("setTags", d.get("tag"))
+    put("setTrailer", d.get("trailer"))
+    put("setSet", d.get("set"))
+    put("setIMDBNumber", d.get("imdbnumber"))
+    put("setDuration", d.get("runtime"), int)
+    put("setUserRating", d.get("userrating"), int)
+    put("setDateAdded", d.get("dateadded"))
+    put("setLastPlayed", d.get("lastplayed"))
+    put("setTop250", d.get("top250"), int)
+    ids = {k: str(v) for k, v in (d.get("uniqueid") or {}).items() if v}
+    put("setUniqueIDs", ids)
+    ratings = d.get("ratings") or {}
+    for name, info in ratings.items():
+        try:
+            tag.setRating(float(info.get("rating", 0)), int(info.get("votes", 0) or 0), name,
+                          bool(info.get("default")))
+        except Exception:  # noqa: BLE001
+            pass
+    if not ratings and d.get("rating"):
+        put("setRating", d["rating"], float)
+    actor = getattr(xbmc, "Actor", None)
+    if actor and d.get("cast"):
+        try:
+            tag.setCast([actor(c.get("name", ""), c.get("role", ""), c.get("order", 0), c.get("thumbnail", ""))
+                         for c in d["cast"]])
+        except Exception as exc:  # noqa: BLE001
+            xbmc.log("[TV Boxsets] could not set cast ({!r})".format(exc), xbmc.LOGINFO)
 
 
 def movie_label(title):
@@ -480,7 +603,10 @@ def set_art(bid, kind=None):
         "Choose an image file",
         "Use the {} of a show or movie in this boxset".format(label),
         "Automatic (first item's {})".format(label),
-    ])
+    ] + (["Make a collage from the posters inside this boxset"] if kind == "poster" else []))
+    if choice == 3 and kind == "poster":
+        make_collage(data, bs, bid)
+        return
     if choice == 0:
         path = xbmcgui.Dialog().browseSingle(2, "Choose {} image".format(label), "files")
         if not path:
@@ -504,6 +630,51 @@ def set_art(bid, kind=None):
     else:
         return
     save(data)
+
+
+def make_collage(data, bs, bid):
+    """Combine the posters of up to six items into one boxset poster (needs Pillow)."""
+    found = [i for _, i in ordered_entries(bs, Library()) if i and i.get("art", {}).get("poster")]
+    if len(found) < 2:
+        notify("A collage needs at least two items with posters")
+        return
+    images = []
+    for item in found[:collage.MAX_ITEMS + 2]:
+        path = collage.source_path(item["art"]["poster"])
+        if not path:
+            continue
+        try:
+            handle = xbmcvfs.File(path)
+            raw = handle.readBytes()
+            handle.close()
+        except Exception:  # noqa: BLE001 - unreachable poster: skip it
+            continue
+        if raw:
+            images.append(raw)
+        if len(images) == collage.MAX_ITEMS:
+            break
+    try:
+        png = collage.build(images)
+    except collage.Unavailable:
+        xbmcgui.Dialog().ok("TV Boxsets", "Making a collage needs the Pillow image library. Install "
+                            "'Python Imaging Library' (script.module.pil) from Kodi's add-on repository "
+                            "(Add-ons > Install from repository > Program add-ons > Python modules), "
+                            "then try again.")
+        return
+    if not png:
+        notify("None of the posters could be read")
+        return
+    folder = os.path.join(store.DATA_DIR, "collages")
+    os.makedirs(folder, exist_ok=True)
+    for old in os.listdir(folder):
+        if old.startswith("collage-{}-".format(bid)):
+            os.remove(os.path.join(folder, old))
+    dest = os.path.join(folder, "collage-{}-{}.png".format(bid, int(time.time())))
+    with open(dest, "wb") as handle:
+        handle.write(png)
+    bs["poster"] = dest
+    save(data)
+    notify("Made a poster from {} item(s)".format(min(len(images), collage.MAX_ITEMS)))
 
 
 def reorder_shows(bid):
@@ -651,19 +822,18 @@ def open_watch(bid):
                     art["thumb"] = art["poster"]
             li.setArt(art)
             tag = li.getVideoInfoTag()
+            item = full_details("movie" if is_movie else "tvshow", item)
             if is_movie:
                 tag.setMediaType("movie")
-                tag.setTitle(movie_label(item["title"]))
+                fill_tag(tag, item, title=movie_label(item["title"]))
                 li.setProperty("boxset_movie", "true")
-                tag.setPlot(item.get("plot", ""))
                 tag.setPlaycount(1 if (item.get("playcount") or 0) > 0 else 0)
                 target, folder = url(action="play_movie", id=item["movieid"]), False
             else:
                 tag.setMediaType("season")
-                tag.setTitle(watchorder.entry_label(entry))
+                fill_tag(tag, item, title=watchorder.entry_label(entry))
                 tag.setTvShowTitle(item["title"])
                 tag.setSeason(entry.get("season", 1))
-                tag.setPlot(item.get("plot", ""))
                 apply_progress(li, tag, season.get("episode", 0) or 0, season.get("watchedepisodes", 0) or 0)
                 target = "videodb://tvshows/titles/{}/{}/".format(item["tvshowid"], entry.get("season", 1))
                 folder = True
@@ -904,6 +1074,97 @@ def watch_place(bid, key, after=None):
     return True
 
 
+def watch_export(bid):
+    """Save the watch order to a small file you can share."""
+    data = load()
+    bs = data.get(bid)
+    rows = watchorder.resolve(bs, Library()) if bs else []
+    if not rows:
+        notify("This boxset has no watch order to export yet")
+        return
+    version = xbmcaddon.Addon().getAddonInfo("version")
+    pack = wopack.build(bs["name"], rows, "TV Boxsets " + version)
+    slug = "".join(c if c.isalnum() else "-" for c in bs["name"].lower()).strip("-") or "boxset"
+    dest = save_text_file("Choose a folder to save the watch order in", "watchorder-{}.json".format(slug),
+                          json.dumps(pack, indent=2, ensure_ascii=False))
+    if dest:
+        xbmcgui.Dialog().ok("TV Boxsets", "Watch order saved:\n{}\n\nIt holds {} entries: titles, years and ids only, "
+                            "nothing else from your library.".format(dest, len(pack["entries"])))
+
+
+def watch_export_pick():
+    """Boxsets menu: choose a boxset that has a watch order, then export it."""
+    data = load()
+    ids = [bid for bid, bs in data.items() if bs.get("watch")]
+    if not ids:
+        notify("None of your boxsets has a watch order yet")
+        return
+    ids.sort(key=lambda b: data[b]["name"].lower())
+    pick = xbmcgui.Dialog().select("Export which watch order?", [data[b]["name"] for b in ids])
+    if pick >= 0:
+        watch_export(ids[pick])
+
+
+def watch_import():
+    """Read a watch order file and put it into a new or an existing boxset."""
+    path = xbmcgui.Dialog().browseSingle(1, "Choose a watch order file", "files", ".json")
+    if not path:
+        return
+    handle = xbmcvfs.File(path)
+    text = handle.read()
+    handle.close()
+    try:
+        pack = wopack.parse(json.loads(text))
+    except ValueError:
+        pack = None
+    if not pack:
+        xbmcgui.Dialog().ok("TV Boxsets", "That doesn't look like a watch order file made by TV Boxsets "
+                            "(or it was made by a newer version).")
+        return
+    data = load()
+    lib = Library()
+    matched = wopack.match(pack["entries"], lib)
+    found = sum(1 for _, item in matched if item)
+    names = [bs["name"] for bs in data.values()]
+    pick = xbmcgui.Dialog().select("'{}': {} entries, {} found in your library".format(
+        pack["name"], len(matched), found), ["Create a boxset called '{}'".format(pack["name"]),
+                                              "Put it in an existing boxset..."])
+    if pick < 0:
+        return
+    if pick == 1:
+        if not names:
+            notify("You have no boxsets yet: choose 'Create a boxset' instead")
+            return
+        which = xbmcgui.Dialog().select("Which boxset?", names)
+        if which < 0:
+            return
+        bid = list(data)[which]
+    else:
+        bid = store.find_by_name(data, pack["name"]) or store.new_boxset(data, pack["name"])
+    bs = data[bid]
+    if bs.get("watch") and not xbmcgui.Dialog().yesno(
+            "Replace the watch order?", "'{}' already has a watch order. Replace it with the imported one?".format(bs["name"])):
+        return
+    entries, _ = watchorder.add_entries([], [e for e, _ in matched])
+    base_refs = []
+    for e, _ in matched:
+        ref = {"title": e["title"], "year": e.get("year", 0) or 0}
+        if e.get("type") == "movie":
+            ref["type"] = "movie"
+        base_refs.append(ref)
+    added = store.add_refs(bs, base_refs)  # entries that are not in the library yet wait there as "not in library"
+    bs["watch"] = entries
+    save(data)
+    missing = sorted({e["title"] for e, item in matched if not item})
+    lines = ["Imported '{}' into '{}': {} entries, {} new item(s) added to the boxset.".format(
+        pack["name"], bs["name"], len(entries), added)]
+    if missing:
+        lines.append("")
+        lines.append("{} not in your library yet (they will appear by themselves once they are):".format(len(missing)))
+        lines.append(", ".join(missing[:8]) + (" and {} more".format(len(missing) - 8) if len(missing) > 8 else ""))
+    xbmcgui.Dialog().ok("TV Boxsets", "\n".join(lines))
+
+
 def watch_remove(bid, key):
     data = load()
     bs = data.get(bid)
@@ -1059,6 +1320,9 @@ def edit_rules(bid):
             "Studio: " + show(rule_set.get("studio")),
             "Years: " + years,
             "Title contains: " + show(rule_set.get("title_contains")),
+            "Unwatched only: " + ("yes" if rule_set.get("unwatched") else "no"),
+            "Added in the last: " + ("{} days".format(rule_set["added_days"]) if rule_set.get("added_days") else "(any time)"),
+            "Rating at least: " + ("{:g}".format(rule_set["rating_min"]) if rule_set.get("rating_min") else "(any)"),
             "[B]Save these rules[/B]",
             "Remove the rules (back to a normal boxset)",
         ])
@@ -1096,16 +1360,33 @@ def edit_rules(bid):
             else:
                 rule_set.pop("title_contains", None)
         elif pick == 6:
+            if rule_set.get("unwatched"):
+                rule_set.pop("unwatched")
+            else:
+                rule_set["unwatched"] = True
+        elif pick == 7:
+            days = dialog.numeric(0, "Added in the last how many days? (blank for any time)")
+            if days and days.strip().isdigit() and int(days) > 0:
+                rule_set["added_days"] = int(days)
+            else:
+                rule_set.pop("added_days", None)
+        elif pick == 8:
+            choice = dialog.select("Rating at least", ["(any)"] + ["{:g}".format(v) for v in rules.RATING_CHOICES])
+            if choice == 0:
+                rule_set.pop("rating_min", None)
+            elif choice > 0:
+                rule_set["rating_min"] = rules.RATING_CHOICES[choice - 1]
+        elif pick == 9:
             if not rules.has_filters(rule_set):
-                dialog.ok("TV Boxsets", "Choose at least one rule (genre, tag, studio, years "
-                                        "or title) first. Rules with nothing set match nothing.")
+                dialog.ok("TV Boxsets", "Choose at least one rule (genre, tag, studio, years, "
+                                        "title, unwatched, recently added or rating) first. Rules with nothing set match nothing.")
                 continue
             bs["rules"] = rule_set
             save(data)
             count = len(smart_matches(bs, lib))
             notify("Saved: {} item(s) match right now".format(count))
             return
-        elif pick == 7:
+        elif pick == 10:
             bs.pop("rules", None)
             bs.pop("excluded", None)
             save(data)
@@ -1174,6 +1455,50 @@ def import_from_tags():
             extended += 0 if is_new else 1
         elif is_new:
             del data[bid]
+    save(data)
+    notify("{} boxset(s) created, {} updated".format(created, extended))
+
+
+def import_movie_sets():
+    """Turn Kodi's own movie sets into boxsets (so TV shows can join them, and they can have a watch order)."""
+    resp = jsonrpc("VideoLibrary.GetMovieSets", {"properties": ["title", "art"]})
+    found = []
+    for s in resp.get("result", {}).get("sets", []):
+        det = jsonrpc("VideoLibrary.GetMovieSetDetails", {
+            "setid": s["setid"], "properties": ["title", "art"],
+            "movies": {"properties": ["title", "year"]}}).get("result", {}).get("setdetails", {})
+        movies = det.get("movies") or s.get("movies") or []
+        if movies:
+            found.append((s, det.get("art") or s.get("art") or {}, movies))
+    if not found:
+        xbmcgui.Dialog().ok("TV Boxsets", "Kodi has no movie sets with movies in them yet. "
+                            "(Sets come from your scraper, for example 'Alien Collection'.)")
+        return
+    data = load()
+    labels = []
+    for s, _, movies in found:
+        bid = store.find_by_name(data, s["title"])
+        labels.append("{} ({} movie{}){}".format(s["title"], len(movies), "" if len(movies) == 1 else "s",
+                                                 "  - already a boxset, will be extended" if bid else ""))
+    chosen = xbmcgui.Dialog().multiselect("Create a boxset for each movie set you pick", labels)
+    if not chosen:
+        return
+    created = extended = 0
+    for i in chosen:
+        s, art, movies = found[i]
+        bid = store.find_by_name(data, s["title"])
+        is_new = bid is None
+        if is_new:
+            bid = store.new_boxset(data, s["title"])
+        bs = data[bid]
+        added = store.add_refs(bs, movies, "movie")
+        for kind in ("poster", "fanart"):  # the set's artwork, unless the boxset already has its own
+            if not bs.get(kind) and art.get(kind):
+                bs[kind] = art[kind]
+        if is_new:
+            created += 1
+        elif added:
+            extended += 1
     save(data)
     notify("{} boxset(s) created, {} updated".format(created, extended))
 
@@ -1336,6 +1661,8 @@ def collect_info():
         "clone_menu_item": '<property name="id">{}</property>'.format(skinpatch.WIDGET_ID) in home_text,
         "clone_widget": skinpatch.has_widget(skin_home_xml()),
         "clone_badges": skinpatch.has_badges(skin_xml_dir()),
+        "clone_categories": skinpatch.has_categories(skin_home_xml()),
+        "setting_hide_categories": store.setting_bool("hide_categories", False),
         "clone_outdated": skin_outdated(),
     }
 
@@ -1368,7 +1695,8 @@ def skin_xml_dir():
 
 def skin_current():
     """True if the skin copy has the current widget block and the library badges."""
-    return skinpatch.has_widget(skin_home_xml()) and skinpatch.has_badges(skin_xml_dir())
+    return (skinpatch.has_widget(skin_home_xml()) and skinpatch.has_categories(skin_home_xml())
+            and skinpatch.has_badges(skin_xml_dir()))
 
 
 def skin_home_xml():
@@ -1414,6 +1742,7 @@ def update_skin():
     """Bring an existing Boxsets skin copy up to date: current widget block + library badges."""
     try:
         changed = skinpatch.patch_widget(skin_home_xml())
+        changed = skinpatch.patch_categories(skin_home_xml()) or changed
         changed = bool(skinpatch.patch_badges(skin_xml_dir())) or changed
     except Exception as exc:  # noqa: BLE001
         xbmc.log("[TV Boxsets] skin update failed: {!r}".format(exc), xbmc.LOGERROR)
@@ -1516,7 +1845,7 @@ def rebuild_skin():
 # Router
 # --------------------------------------------------------------------------
 
-NO_REFRESH = {"watch_open", "play_episode", "play_next", "play_movie", "missing", "export", "diagnostics"}
+NO_REFRESH = {"watch_export", "queue", "watch_open", "play_episode", "play_next", "play_movie", "missing", "export", "diagnostics"}
 
 
 def router(paramstring):
@@ -1594,6 +1923,14 @@ def router(paramstring):
             refresh_rows()
         elif action in ("menu", "tools"):
             global_menu()
+        elif action == "watch_export":
+            watch_export(p["bid"])
+        elif action == "watch_import":
+            watch_import()
+        elif action == "import_sets":
+            import_movie_sets()
+        elif action == "queue":
+            queue_play(p["bid"], bool(p.get("watch")))
         elif action == "watch_open":
             go_watch(p["bid"])
         elif action == "watch_add":

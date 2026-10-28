@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.14.0" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.21.1" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
+    <import addon="script.module.pil" optional="true"/>
   </requires>
   <extension point="xbmc.python.pluginsource" library="main.py">
     <provides>video</provides>
@@ -25,6 +26,10 @@
         <label>Place after another item...</label>
         <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)] + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
       </item>
+      <item library="ctx_watch_remove.py">
+        <label>Remove from the watch order</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch) + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
+      </item>
       <item library="context_remove.py">
         <label>Remove from this boxset</label>
         <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)] + String.IsEmpty(ListItem.Property(boxset_action)) + !String.IsEmpty(ListItem.Title)</visible>
@@ -41,12 +46,20 @@
         <label>Add episodes (crossovers)...</label>
         <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch)</visible>
       </item>
+      <item library="ctx_watch_export.py">
+        <label>Export this watch order to a file...</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch)</visible>
+      </item>
       <item library="ctx_watch_fill.py">
         <label>Fill the watch order from this boxset</label>
         <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + String.Contains(Container.FolderPath,action=watch)</visible>
       </item>
       <item library="ctx_play_next.py">
         <label>Play next unwatched episode</label>
+        <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)]</visible>
+      </item>
+      <item library="ctx_queue.py">
+        <label>Play all unwatched (queue)...</label>
         <visible>String.Contains(Container.FolderPath,plugin.video.tvboxsets) + [String.Contains(Container.FolderPath,action=open) | String.Contains(Container.FolderPath,action=watch)]</visible>
       </item>
       <item library="ctx_add_shows.py">
@@ -74,7 +87,43 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.14.0 (alpha)
+    <news>v0.21.1 (alpha)
+- New: each boxset now shows its own name on its poster in the Boxsets list and in the home screen rows (Boxsets, and Next up shows the boxset it belongs to). Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.21.0 (alpha)
+- New smart rules: Unwatched only, Added in the last N days, and Rating at least (Smart rules editor). They combine with the existing genre, tag, studio, years and title rules
+- New: Set boxset artwork > Poster > "Make a collage from the posters inside this boxset" builds one poster from up to six of its items (needs the optional Python Imaging Library add-on, script.module.pil; Kodi offers it)
+
+v0.20.1 (alpha)
+- Fix: the Boxsets menu had "Import a watch order file..." but no export. Added "Export a watch order file...": pick a boxset that has a watch order and save it as a file (the right-click entry inside a watch order still works too)
+
+v0.20.0 (alpha)
+- New: works in other skins. Boxsets menu > "Add boxsets to Kodi's library menu (other skins)..." adds a "TV Boxsets" folder under Videos > Library with one entry per boxset (TV shows and movies), built on the boxset tags. It stays up to date by itself; restart Kodi once after adding. "Remove boxsets from Kodi's library menu..." takes it away again
+
+v0.19.0 (alpha)
+- New: share a watch order. Inside a watch order, right-click > "Export this watch order to a file..." saves a small .json file (titles, years and ids only). Boxsets menu > "Import a watch order file..." reads one, matches it to your library (by IMDb/TMDB/TVDB id, then title and year) and puts it in a new or existing boxset. Anything you don't have yet is listed and shows as "not in library"
+
+v0.18.1 (alpha)
+- Inside a watch order, right-click now has "Remove from the watch order" (takes just that entry out of the order) and "Remove from this boxset" (takes the show or movie out of the boxset, after asking)
+
+v0.18.0 (alpha)
+- New: Boxsets menu > "Create boxsets from Kodi movie sets...". Pick any of the movie sets your scraper made (for example "Alien Collection") and each becomes a boxset, with the set's poster and fanart. TV shows can then be added to it, and it can have a watch order
+
+v0.17.0 (alpha)
+- Next up: a new home screen row under Boxsets ("Next up (watch order)") with one tile per boxset that has a watch order: the next unwatched episode or movie, ready to play
+- Play all unwatched (queue): right-click a boxset (or inside it, or inside its watch order) to play everything unwatched in order, or add it to the end of the queue
+- Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.16.1 (alpha)
+- Fix: with the Categories row hidden using Estuary's own skin switch, clicking TV shows / Movies / Music videos opened the category list. In the Estuary (Boxsets) skin it now always opens the titles whenever that row is hidden (by Estuary's switch or by this add-on's setting). Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.16.0 (alpha)
+- The information page (press "i") for shows and movies inside a boxset now shows everything it shows in the normal library: cast, ratings, certificate, studio, premiere date, runtime, original title, director/writer (movies) and more. No skin update needed
+
+v0.15.1 (alpha)
+- New setting: "Hide the Categories rows on the home screen". The row of category tiles on the home screen goes away under Movies, TV shows, Music videos, Music, Add-ons, TV and Radio, and clicking Movies, TV shows or Music videos still opens the titles straight away. Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.14.0 (alpha)
 - Crossover episodes: the watch order can now hold single episodes or runs of episodes, not just whole seasons. Right-click inside the watch order > "Add episodes (crossovers)...", pick the show, season and episodes. If that season is already in the order it is split around them in place (episodes 1-7, the crossover 8-9, then 10 onwards). Arrange, remove and "Play next unwatched episode" work with the parts
 
 v0.13.0 (alpha)

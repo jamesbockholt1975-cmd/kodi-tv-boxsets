@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Context menu item: remove the highlighted item from the boxset being browsed."""
+"""Context menu item: remove the highlighted item from the boxset being browsed (in the watch order
+this still removes the show or movie from the BOXSET; 'Remove from the watch order' is the other entry)."""
 
 from urllib.parse import urlparse, parse_qs
 
@@ -16,10 +17,6 @@ def notify(message):
 
 
 def main():
-    import ctxutil
-    if ctxutil.in_watch_order():  # in the watch order, Remove takes it out of the order only
-        ctxutil.run_plugin(action="watch_remove", bid=ctxutil.current_bid(), key=ctxutil.current_key())
-        return
     path = xbmc.getInfoLabel("Container.FolderPath")
     bid = parse_qs(urlparse(path).query).get("bid", [""])[0]
     title = xbmc.getInfoLabel("ListItem.Property(boxset_title)") or xbmc.getInfoLabel("ListItem.Title")

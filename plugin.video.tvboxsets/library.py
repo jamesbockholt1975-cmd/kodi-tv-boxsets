@@ -11,10 +11,21 @@ import store
 from store import show_key
 
 TV_PROPS = ["title", "year", "art", "plot", "genre", "studio", "tag",
-            "episode", "watchedepisodes"]
-MOVIE_PROPS = ["title", "year", "art", "plot", "genre", "studio", "tag", "playcount"]
+            "episode", "watchedepisodes", "uniqueid", "rating", "dateadded"]
+MOVIE_PROPS = ["title", "year", "art", "plot", "genre", "studio", "tag", "playcount", "uniqueid", "rating", "dateadded"]
+# Everything Kodi's own information page shows. Fetched one item at a time for the items on screen
+# (cast lists for a whole library would be far too heavy).
+TV_DETAIL = ["title", "originaltitle", "sorttitle", "year", "premiered", "plot", "genre", "studio", "mpaa",
+             "cast", "rating", "ratings", "votes", "userrating", "runtime", "imdbnumber", "uniqueid",
+             "playcount", "dateadded", "lastplayed", "episode", "watchedepisodes", "season", "tag", "art"]
+MOVIE_DETAIL = ["title", "originaltitle", "sorttitle", "year", "premiered", "plot", "plotoutline", "tagline",
+                "genre", "studio", "mpaa", "cast", "director", "writer", "country", "rating", "ratings", "votes",
+                "userrating", "runtime", "imdbnumber", "uniqueid", "trailer", "set", "playcount", "dateadded",
+                "lastplayed", "tag", "art", "top250"]
 # Enough to match titles and evaluate smart rules, without artwork and plots (used for badges).
-LIGHT_PROPS = ["title", "year", "genre", "studio", "tag"]
+LIGHT_PROPS = ["title", "year", "genre", "studio", "tag", "rating", "dateadded"]
+LIGHT_TV = LIGHT_PROPS + ["episode", "watchedepisodes"]  # what smart rules (unwatched) need
+LIGHT_MOVIE = LIGHT_PROPS + ["playcount"]
 
 
 def jsonrpc(method, params=None):
@@ -22,6 +33,17 @@ def jsonrpc(method, params=None):
     if params:
         req["params"] = params
     return json.loads(xbmc.executeJSONRPC(json.dumps(req)))
+
+
+def full_details(media, item):
+    """The library item with every field the information page shows (the item itself if Kodi can't say)."""
+    if media == "movie":
+        resp = jsonrpc("VideoLibrary.GetMovieDetails", {"movieid": item["movieid"], "properties": MOVIE_DETAIL})
+        extra = resp.get("result", {}).get("moviedetails")
+    else:
+        resp = jsonrpc("VideoLibrary.GetTVShowDetails", {"tvshowid": item["tvshowid"], "properties": TV_DETAIL})
+        extra = resp.get("result", {}).get("tvshowdetails")
+    return dict(item, **extra) if extra else item
 
 
 def media_of(ref):
@@ -44,8 +66,8 @@ class Library:
     """
 
     def __init__(self, light=False):
-        self._movie_props = LIGHT_PROPS if light else MOVIE_PROPS
-        resp = jsonrpc("VideoLibrary.GetTVShows", {"properties": LIGHT_PROPS if light else TV_PROPS})
+        self._movie_props = LIGHT_MOVIE if light else MOVIE_PROPS
+        resp = jsonrpc("VideoLibrary.GetTVShows", {"properties": LIGHT_TV if light else TV_PROPS})
         self.shows = resp.get("result", {}).get("tvshows", [])
         self._movies = None
         self._tv_index = None

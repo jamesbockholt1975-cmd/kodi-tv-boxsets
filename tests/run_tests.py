@@ -15,6 +15,7 @@ import shutil
 import sys
 import tempfile
 
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ADDON = os.path.abspath(os.path.join(HERE, "..", "plugin.video.tvboxsets"))
 
@@ -375,7 +376,7 @@ ok("Film Two" not in left and "Alpha" in left and "Film One" in left, "context r
 
 print("== smart boxsets")
 store.save({})
-runq("action=create_smart", input=["Dramas"], select=[1, 2, 6])
+runq("action=create_smart", input=["Dramas"], select=[1, 2, 9])
 d = store.load(); sid = store.find_by_name(d, "Dramas")
 ok(sid and d[sid]["rules"] == {"media": "tv", "genre": "Drama"}, "smart boxset built through the rule editor")
 ok([i[0].label for i in run("action=open&bid=%s" % sid)][:2] == ["Alpha", "Gamma"], "smart boxset fills itself from the library")
@@ -399,16 +400,16 @@ b = store.load()[sid]
 ok(b["shows"] == [] and len(b["excluded"]) == 1, "removing a hand-picked show deletes it (no exclusion needed)")
 d = store.load(); d[sid]["shows"] = [{"title": "Gamma", "year": 2020}]; d[sid]["manual_order"] = True; d[sid]["excluded"] = []; store.save(d)
 ok([i[0].label for i in run("action=open&bid=%s" % sid)][:2] == ["Gamma", "Alpha"], "manual order: saved entries first, then smart matches A-Z (no duplicates)")
-runq("action=create_smart", input=["Recent"], select=[4, 6], numeric=["2012", "2018"])
+runq("action=create_smart", input=["Recent"], select=[4, 9], numeric=["2012", "2018"])
 rid = store.find_by_name(store.load(), "Recent")
 ok(store.load()[rid]["rules"] == {"media": "tv", "year_min": 2012, "year_max": 2018}, "year rule saved")
 ok([i[0].label for i in run("action=open&bid=%s" % rid)][:1] == ["Beta"], "year rule selects only Beta (2015)")
-runq("action=create_smart", input=["Nothing"], select=[6, -1])
+runq("action=create_smart", input=["Nothing"], select=[9, -1])
 ok(any(k == "ok" and "at least one rule" in v for k, v in D.LOG), "saving with no rules is refused")
 ok(store.find_by_name(store.load(), "Nothing") is None, "cancelled smart boxset is not kept")
 d = store.load(); d[rid]["rules"] = {"media": "both", "genre": "Drama"}; store.save(d)
 ok([i[0].label for i in run("action=open&bid=%s" % rid)][:3] == ["Alpha", ML("Film One"), "Gamma"], "smart rules can include movies")
-runq("action=rules&bid=%s" % rid, select=[7])
+runq("action=rules&bid=%s" % rid, select=[10])
 ok("rules" not in store.load()[rid], "rules can be removed, leaving a normal boxset")
 
 print("== mark watched / unwatched")
@@ -501,15 +502,15 @@ ok(skinpatch.patch_widget("oldhome/Home.xml") is True and skinpatch.has_widget("
 tree = ET.parse("oldhome/Home.xml")
 groups = [e for e in tree.iter("control") if e.get("id") == "99000"]
 rows = [i.find('param[@name="content_path"]').get("value") for i in groups[0].findall('.//include[@content="WidgetListPoster"]')]
-ok(len(groups) == 1 and rows == [skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH],
-   "exactly one group, two rows; & correctly escaped and values read back unchanged")
+ok(len(groups) == 1 and rows == [skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH, skinpatch.WIDGET_NEXT_PATH],
+   "exactly one group, three rows (Boxsets, Continue watching, Next up); & correctly escaped and values read back unchanged")
 ok(all("reload=$INFO[Window(Home).Property(tvboxsets_reload)]" in r for r in rows), "both rows carry the reload value")
 # simulate the previous (v2) block: older marker, no reload value
 text = open("oldhome/Home.xml", encoding="utf-8", newline="").read()
-text = text.replace("tvboxsets-widget v3", "tvboxsets-widget v2").replace("&amp;reload=$INFO[Window(Home).Property(tvboxsets_reload)]", "")
+text = text.replace("tvboxsets-widget v4", "tvboxsets-widget v2").replace("&amp;reload=$INFO[Window(Home).Property(tvboxsets_reload)]", "")
 with open("oldhome/Home.xml", "w", encoding="utf-8", newline="") as f:
     f.write(text)
-ok(not skinpatch.has_widget("oldhome/Home.xml") and skinpatch.patch_widget("oldhome/Home.xml") is True, "a v2 block (no reload value) is upgraded to v3")
+ok(not skinpatch.has_widget("oldhome/Home.xml") and skinpatch.patch_widget("oldhome/Home.xml") is True, "a v2 block (no reload value) is upgraded to the current version")
 ok(sum(1 for e in ET.parse("oldhome/Home.xml").iter("control") if e.get("id") == "99000") == 1, "still exactly one widget group after upgrading from v2")
 ok(skinpatch.patch_widget("oldhome/Home.xml") is False, "upgrade is idempotent")
 
@@ -541,7 +542,7 @@ ok(current() != third, "the right-click 'Boxsets...' also refreshes the rows")
 before = current(); _t.sleep(0.01)
 runq("action=refresh_widgets")
 ok(current() != before, "Tools > Refresh the home screen rows works as a manual fallback")
-ok(all(skinpatch.RELOAD_PROPERTY in r for r in (skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH)), "row addresses reference the property the add-on sets")
+ok(all(skinpatch.RELOAD_PROPERTY in r for r in (skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH, skinpatch.WIDGET_NEXT_PATH)), "row addresses reference the property the add-on sets")
 
 now = [100.0]
 deb = service.Debouncer(quiet=2.0, clock=lambda: now[0])
@@ -650,7 +651,7 @@ ok(all(os.path.exists(os.path.join(ADDON, i.get("library"))) for i in ctx_items)
 ok(len({i.findtext("label") for i in ctx_items}) == len(ctx_items), "right-click labels are all different")
 inside = [i for i in ctx_items if i.get("library") != "context.py"]
 ok(all(("action=open" in i.findtext("visible") or "action=watch" in i.findtext("visible")) for i in inside), "in-boxset items only show while browsing a boxset or its watch order")
-ok(all("boxset_action" in i.findtext("visible") for i in inside if i.get("library") in ("ctx_move_up.py", "ctx_move_down.py", "context_remove.py")), "Move/Remove are hidden on placeholder rows")
+ok(all("boxset_action" in i.findtext("visible") for i in inside if i.get("library") in ("ctx_move_up.py", "ctx_move_down.py", "context_remove.py", "ctx_watch_remove.py")), "Move/Remove are hidden on placeholder rows")
 
 print("== place an item after another")
 store.save({"pl": box("Placing", [A, B, G, {"title": "Film One", "year": 2012, "type": "movie"}])})
@@ -678,8 +679,9 @@ xbmc.INFO["ListItem.Title"] = ML("Film One"); xbmc.INFO["ListItem.Property(boxse
 ok("title=Film+One&" in run_script("ctx_place.py") + "&" and "%5B" not in run_script("ctx_move_up.py"), "right-click scripts send the real title, not the labelled one")
 ok(any(i.get("library") == "ctx_place.py" and "boxset_action" in i.findtext("visible") for i in ctx_items), "Place is hidden on placeholder rows")
 
+wlist_entries = lambda b: [dict(e) for e in b.get('watch', [])]  # noqa: E731
 print("== watch order: seasons and movies in a sequence you choose")
-import watchorder  # noqa: E402
+import watchorder, wopack  # noqa: E402
 xbmc.SEASONS = {1: [{"season": 1, "episode": 10, "watchedepisodes": 4, "art": {"poster": "pA-s1"}},
                     {"season": 2, "episode": 6, "watchedepisodes": 0, "art": {}}],
                 2: [{"season": 1, "episode": 8, "watchedepisodes": 8, "art": {}}],
@@ -742,7 +744,14 @@ xbmc.INFO.update({"Container.FolderPath": "plugin://plugin.video.tvboxsets/?acti
 cmd_up = run_script("ctx_move_up.py")
 ok(all(x in cmd_up for x in ("action=watch_move", "bid=wo", "delta=-1")) and "key=season%3Aalpha%7C2010%7C2" in cmd_up, "Move up in the watch order sends the row's key")
 ok("action=watch_place" in run_script("ctx_place.py"), "Place sends the watch order action")
-ok("action=watch_remove" in run_script("context_remove.py") and "key=season" in xbmc.BUILTINS[-1], "Remove in the watch order takes it out of the order only")
+ok("action=watch_remove" in run_script("ctx_watch_remove.py") and "key=season" in xbmc.BUILTINS[-1], "'Remove from the watch order' takes just that entry out of the order")
+d = store.load(); d["wo"]["watch"] = [{"title": "Alpha", "year": 2010, "season": 2}, {"title": "Film One", "year": 2012, "type": "movie"}]; d["wo"]["shows"] = [A, G, F1]; store.save(d)
+xbmc.INFO.update({"ListItem.Title": "Film One [Movie]", "ListItem.Property(boxset_title)": "Film One", "ListItem.Year": "2012", "ListItem.DBType": "movie"})
+D.Q.clear(); D.Q.update({"yesno": [True]}); context_remove.main()
+dd = store.load()["wo"]
+ok([r["title"] for r in dd["shows"]] == ["Alpha", "Gamma"] and not any("Film One" in i[0].label for i in wlist()), "'Remove from this boxset' in the watch order removes the movie from the boxset (and so from the order)")
+d = store.load(); d["wo"]["shows"] = [A, G, F1]; store.save(d)
+
 ok("watch=1" in run_script("ctx_play_next.py"), "Play next knows it is in the watch order")
 ok("action=watch_add" in run_script("ctx_watch_add.py") and "action=watch_fill" in run_script("ctx_watch_fill.py"), "Add and Fill scripts")
 xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=open&bid=wo"
@@ -798,6 +807,361 @@ import ctxutil as _cu  # noqa: E402
 ok(not _cu.in_watch_order() and "action=watch" not in xbmc.INFO["Container.FolderPath"], "inside a range folder the watch-order menu entries stay hidden")
 xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=watch&bid=wo"
 ok("action=watch_add_eps" in run_script("ctx_watch_add_eps.py"), "Add episodes script")
+
+print("== hide the Categories rows (setting)")
+cat_home = os.path.join(ROOT, "cat_home.xml")
+open(cat_home, "w", encoding="utf-8").write("""<window>
+  <include content="WidgetListCategories" condition="Library.HasContent(movies) + !Skin.HasSetting(home_no_movies_categories_widget)"/>
+  <include content="WidgetListCategories" condition="Library.HasContent(tvshows) + !Skin.HasSetting(home_no_tvshows_categories_widget)"/>
+  <include content="WidgetListCategories" condition="Library.HasContent(musicvideos) + !Skin.HasSetting(home_no_musicvideos_categories_widget)"/>
+  <include content="WidgetListCategories" condition="Library.HasContent(music) + !Skin.HasSetting(home_no_music_categories_widget)"/>
+  <include content="WidgetListCategories" condition="!Skin.HasSetting(home_no_addons_categories_widget)" >
+  </include>
+  <include content="WidgetListCategories" condition="System.HasPVRAddon + !Skin.HasSetting(home_no_tv_categories_widget)"/>
+  <include content="WidgetListCategories" condition="System.HasPVRAddon + !Skin.HasSetting(home_no_radio_categories_widget)"/>
+  <include content="WidgetListCategories" condition="Library.HasContent(tvshows) + !Skin.HasSetting(home_no_tvshows_genres_widget)"/>
+  <include content="WidgetListCategories"><param name="content_path" value="library://video/"/></include>
+  <item>
+    <onclick condition="Library.HasContent(tvshows) + Skin.HasSetting(home_no_tvshows_categories_widget) + !System.GetBool(myvideos.flatten)">ActivateWindow(Videos,videodb://tvshows/,return)</onclick>
+    <onclick condition="Library.HasContent(tvshows) + Skin.HasSetting(home_no_tvshows_categories_widget) + System.GetBool(myvideos.flatten)">ActivateWindow(Videos,videodb://tvshows/titles/,return)</onclick>
+    <onclick condition="Library.HasContent(tvshows) + !Skin.HasSetting(home_no_tvshows_categories_widget)">ActivateWindow(Videos,videodb://tvshows/titles/,return)</onclick>
+  </item>
+  <item>
+    <onclick condition="Library.HasContent(movies) + Skin.HasSetting(home_no_movies_categories_widget) + !System.GetBool(myvideos.flatten)">ActivateWindow(Videos,videodb://movies/,return)</onclick>
+  </item>
+  <item>
+    <onclick>ActivateWindow(Videos,musicvideos,return)</onclick>
+  </item>
+</window>
+""")
+ok(not skinpatch.has_categories(cat_home), "a Home.xml without the hide-categories patch is out of date")
+ok(skinpatch.patch_categories(cat_home) is True and skinpatch.has_categories(cat_home), "patched")
+ct = open(cat_home, encoding="utf-8").read()
+flag = "Property(tvboxsets_hide_categories)"
+ET.fromstring(ct)
+hidden = [l for l in ct.splitlines() if "WidgetListCategories" in l and "String.IsEqual(Window(Home)." + flag in l]
+ok(len(hidden) == 7 and all("_categories_widget)" in l for l in hidden),
+   "all seven Categories rows (movies, TV shows, music videos, music, add-ons, TV, radio) hide when the flag is on")
+ok(all("tvboxsets_hide" not in l for l in ct.splitlines() if "genres_widget" in l or 'value="library://video/"' in l),
+   "the Genres rows and the Videos menu's own rows are left alone")
+ok('<onclick condition="Library.HasContent(tvshows) + Skin.HasSetting(home_no_tvshows_categories_widget) + !System.GetBool(myvideos.flatten)">ActivateWindow(Videos,videodb://tvshows/titles/,return)</onclick>' in ct
+   and '<onclick condition="Library.HasContent(movies) + Skin.HasSetting(home_no_movies_categories_widget) + !System.GetBool(myvideos.flatten)">ActivateWindow(Videos,videodb://movies/titles/,return)</onclick>' in ct
+   and "videodb://tvshows/,return" not in ct and "videodb://movies/,return" not in ct,
+   "with the row hidden (by Estuary's own switch or this setting) clicking TV shows / Movies opens the titles, never the category list")
+ok('<onclick condition="Library.HasContent(tvshows) + !Skin.HasSetting(home_no_tvshows_categories_widget)">' in ct, "the normal click (titles straight away) is untouched")
+ok('condition="Skin.HasSetting(home_no_musicvideos_categories_widget) | String.IsEqual(Window(Home).' + flag + ',true)">ActivateWindow(Videos,videodb://musicvideos/titles/' in ct
+   and 'ActivateWindow(Videos,musicvideos,return)' in ct, "music videos: titles when its row is hidden (either way), the usual screen otherwise")
+ok(skinpatch.CATEGORIES_MARKER in ct and ct.count(skinpatch.CATEGORIES_MARKER) == 1, "the version marker is in Home.xml once")
+# a Home.xml patched by 0.15.x (version 1) is brought up to date
+v1 = open(os.path.join(ROOT, "v1_home.xml"), "w", encoding="utf-8")
+v1.write("""<window>
+  <include content="WidgetListCategories" condition="Library.HasContent(tvshows) + !Skin.HasSetting(home_no_tvshows_categories_widget) + !String.IsEqual(Window(Home).Property(tvboxsets_hide_categories),true)"/>
+  <item>
+    <onclick condition="Library.HasContent(tvshows) + Skin.HasSetting(home_no_tvshows_categories_widget) + !System.GetBool(myvideos.flatten) + !String.IsEqual(Window(Home).Property(tvboxsets_hide_categories),true)">ActivateWindow(Videos,videodb://tvshows/,return)</onclick>
+    <onclick condition="Library.HasContent(tvshows) + Skin.HasSetting(home_no_tvshows_categories_widget) + !System.GetBool(myvideos.flatten) + String.IsEqual(Window(Home).Property(tvboxsets_hide_categories),true)">ActivateWindow(Videos,videodb://tvshows/titles/,return)</onclick>
+    <onclick condition="Library.HasContent(tvshows) + Skin.HasSetting(home_no_tvshows_categories_widget) + System.GetBool(myvideos.flatten)">ActivateWindow(Videos,videodb://tvshows/titles/,return)</onclick>
+  </item>
+  <item>
+    <onclick condition="!String.IsEqual(Window(Home).Property(tvboxsets_hide_categories),true)">ActivateWindow(Videos,musicvideos,return)</onclick>
+    <onclick condition="String.IsEqual(Window(Home).Property(tvboxsets_hide_categories),true)">ActivateWindow(Videos,videodb://musicvideos/titles/,return)</onclick>
+  </item>
+</window>
+""")
+v1.close()
+v1p = os.path.join(ROOT, "v1_home.xml")
+ok(not skinpatch.has_categories(v1p), "a Home.xml patched by 0.15.x counts as out of date")
+ok(skinpatch.patch_categories(v1p) is True and skinpatch.has_categories(v1p), "...and is upgraded")
+v2 = open(v1p, encoding="utf-8").read(); ET.fromstring(v2)
+ok("videodb://tvshows/,return" not in v2 and v2.count("tvshows/titles/,return") == 2 and v2.count("Property(tvboxsets_hide_categories)") == 3 and v2.count("<onclick") == 4,
+   "the old paired lines are replaced, not duplicated (2 TV clicks, 2 music video clicks)")
+ok(skinpatch.patch_categories(v1p) is False, "upgrading twice changes nothing")
+ok(skinpatch.patch_categories(cat_home) is False and open(cat_home, encoding="utf-8").read() == ct, "patching again changes nothing")
+ok(skinpatch.has_categories(os.path.join(HERE, "fixtures", "Home.xml")), "a skin whose Home.xml has no such rows has nothing to patch (counts as current)")
+xbmcaddon.SETTINGS.pop("hide_categories", None); xbmcgui.Window(10000).setProperty("tvboxsets_hide_categories", "x")
+store.publish_flags()
+ok(xbmcgui.Window(10000).getProperty("tvboxsets_hide_categories") == "", "setting off: the flag is empty")
+xbmcaddon.SETTINGS["hide_categories"] = True; w = service.Watcher(); w.onSettingsChanged()
+ok(xbmcgui.Window(10000).getProperty("tvboxsets_hide_categories") == "true", "turning the setting on publishes the flag straight away")
+xbmcaddon.SETTINGS["hide_categories"] = False; w.onSettingsChanged()
+ok(xbmcgui.Window(10000).getProperty("tvboxsets_hide_categories") == "", "turning it off clears it")
+ok(any(st.get("id") == "hide_categories" for st in ET.parse(os.path.join(ADDON, "resources", "settings.xml")).getroot().iter("setting")), "the setting exists in the settings page")
+
+print("== boxset items carry the full information")
+full_tv = dict(xbmc.LIB[0], originaltitle="Alpha Original", mpaa="TV-MA", premiered="2010-01-05", runtime=2700, imdbnumber="tt0000001",
+               rating=8.4, votes=1200, ratings={"imdb": {"rating": 8.4, "votes": 1200, "default": True}}, userrating=9,
+               cast=[{"name": "A. Actor", "role": "Hero", "order": 0, "thumbnail": "t.jpg"}], uniqueid={"imdb": "tt0000001"},
+               dateadded="2020-01-01 10:00:00", studio=["HBO"])
+orig_rpc = xbmc.executeJSONRPC
+def rpc_full(req):
+    q = json.loads(req)
+    if q["method"] == "VideoLibrary.GetTVShowDetails" and q["params"]["tvshowid"] == 1:
+        RPC_PROPS.append(q["params"]["properties"])
+        return json.dumps({"result": {"tvshowdetails": full_tv}})
+    return orig_rpc(req)
+RPC_PROPS = []
+xbmc.executeJSONRPC = rpc_full
+store.save({"fi": box("Info", [A, F1])})
+fi = run("action=open&bid=fi")
+xbmc.executeJSONRPC = orig_rpc
+td = fi[0][0].tag.d
+ok(td.get("Mpaa") == "TV-MA" and td.get("Premiered") == "2010-01-05" and td.get("OriginalTitle") == "Alpha Original" and td.get("IMDBNumber") == "tt0000001",
+   "a show in a boxset carries certificate, premiere date, original title and IMDb number")
+ok(td.get("Duration") == 2700 and td.get("UserRating") == 9 and td.get("Studios") == ["HBO"] and td.get("UniqueIDs") == {"imdb": "tt0000001"}, "runtime, your rating, studio and ids are carried too")
+ok(td.get("Cast") and td["Cast"][0].name == "A. Actor" and td["Cast"][0].role == "Hero", "the cast list is carried")
+ok(td.get("Rating") is not None and RPC_PROPS and "cast" in RPC_PROPS[0] and "ratings" in RPC_PROPS[0], "ratings are carried, and the full record is asked for one show at a time")
+ok(fi[1][0].tag.d.get("Title") == ML("Film One") and fi[1][0].tag.d.get("Plot") == "m", "a movie still carries the [Movie] title and its plot")
+
+print("== next up (home row) and the play queue")
+xbmc.SEASONS = {1: [{"season": 1, "episode": 10, "watchedepisodes": 4, "art": {}}, {"season": 2, "episode": 6, "watchedepisodes": 0, "art": {}}],
+                2: [{"season": 1, "episode": 8, "watchedepisodes": 8, "art": {}}],
+                3: [{"season": 1, "episode": 5, "watchedepisodes": 0, "art": {}}]}
+def eps_for_show1(season2_watched=0):
+    return [{"episodeid": 100 + n, "season": 1, "episode": n, "title": "T%d" % n, "playcount": 1 if n <= 4 else 0, "plot": "p", "art": {}} for n in range(1, 11)] + [
+        {"episodeid": 200 + n, "season": 2, "episode": n, "title": "U%d" % n, "playcount": 1 if n <= season2_watched else 0, "plot": "", "art": {}} for n in range(1, 7)]
+xbmc.EPISODES = {1: eps_for_show1()}
+xbmc.MOVIES[0]["playcount"] = 0
+store.save({"nu": dict(box("Nu", [A, G, F1]), watch=[{"title": "Alpha", "year": 2010, "season": 2}, {"title": "Film One", "year": 2012, "type": "movie"},
+                                                       {"title": "Alpha", "year": 2010, "season": 1}]),
+            "plain": box("Plain", [A])})
+nr = run("action=widget&filter=next_up")
+ok(len(nr) == 1 and nr[0][0].label2 == "Nu" and nr[0][0].label == "Alpha - S2E1: U1" and "action=play_episode&id=201" in nr[0][1] and nr[0][2] is False,
+   "Next up: one tile per boxset WITH a watch order (not the plain one), the first unwatched episode, playable")
+ok("watch order of 'Nu'" in nr[0][0].tag.d.get("Plot", ""), "the tile says which boxset it is from")
+ok(nr[0][0].props.get("boxset_tile") == "Nu", "...and carries the name for the skin to draw on the poster")
+xbmc.EPISODES = {1: eps_for_show1(season2_watched=6)}
+nr = run("action=widget&filter=next_up")
+ok(len(nr) == 1 and "action=play_movie&id=10" in nr[0][1] and nr[0][0].props.get("boxset_movie") == "true", "after season 2 the next thing in the order is the movie")
+xbmc.MOVIES[0]["playcount"] = 1
+nr = run("action=widget&filter=next_up")
+ok(nr[0][0].label == "Alpha - S1E5: T5", "then the first unwatched episode of the last season in the order")
+xbmc.EPISODES = {1: [dict(e, playcount=1) for e in eps_for_show1(6)]}
+ok(run("action=widget&filter=next_up") == [] or all(i[0].label2 != "Nu" for i in run("action=widget&filter=next_up")), "a fully watched watch order has no tile")
+# the play queue
+xbmc.EPISODES = {1: eps_for_show1()}; xbmc.MOVIES[0]["playcount"] = 0
+def rpc_calls(*names):
+    return [(m, p) for m, p in xbmc.RPC_LOG if m in names]
+xbmc.RPC_LOG.clear(); runq("action=queue&bid=nu&watch=1", select=[0])
+adds = rpc_calls("Playlist.Add")
+ids = [list(p["item"].values())[0] for _, p in adds]
+ok(ids == [201, 202, 203, 204, 205, 206, 10, 105, 106, 107, 108, 109, 110], "the queue follows the watch order: season 2, the movie, the rest of season 1 (unwatched only)")
+ok([m for m, _ in rpc_calls("Playlist.Clear", "Player.Open")] == ["Playlist.Clear", "Player.Open"] and rpc_calls("Player.Open")[0][1]["item"] == {"playlistid": 1, "position": 0},
+   "'Play them now' clears the queue and starts at the first item")
+xbmc.RPC_LOG.clear(); runq("action=queue&bid=nu&watch=1", select=[1])
+ok(len(rpc_calls("Playlist.Add")) == 13 and not rpc_calls("Playlist.Clear", "Player.Open"), "'Add to the end of the queue' only adds")
+xbmc.RPC_LOG.clear(); runq("action=queue&bid=nu&watch=1", select=[-1])
+ok(not rpc_calls("Playlist.Add", "Playlist.Clear", "Player.Open"), "cancelling the dialog queues nothing")
+xbmc.RPC_LOG.clear(); runq("action=queue&bid=nu", select=[0])
+ids = [list(p["item"].values())[0] for _, p in rpc_calls("Playlist.Add")]
+ok(ids == [105, 106, 107, 108, 109, 110, 201, 202, 203, 204, 205, 206, 10], "without 'watch' the boxset's own order is used (Alpha's unwatched episodes, then the movie)")
+xbmc.EPISODES = {1: [dict(e, playcount=1) for e in eps_for_show1(6)]}; xbmc.MOVIES[0]["playcount"] = 1
+xbmc.RPC_LOG.clear(); runq("action=queue&bid=nu&watch=1", select=[0])
+ok(not rpc_calls("Playlist.Add") and not rpc_calls("Player.Open") and not any(m == "select" for m, _ in D.LOG[-1:]), "nothing unwatched: nothing is queued and no dialog is shown")
+xbmc.EPISODES = {1: eps_for_show1()}; xbmc.MOVIES[0]["playcount"] = 0
+xbmc.INFO.clear(); xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=watch&bid=nu"
+ok("watch=1" in run_script("ctx_queue.py") and "action=queue" in xbmc.BUILTINS[-1], "the right-click entry knows when it is in the watch order")
+xbmc.INFO["Container.FolderPath"] = "plugin://plugin.video.tvboxsets/?action=open&bid=nu"
+ok("watch=1" not in run_script("ctx_queue.py"), "...and when it is in the plain boxset")
+vis = {i.get("library"): i.findtext("visible") for i in addon_root.iter("item")}
+ok("action=open" in vis["ctx_queue.py"] and "action=watch" in vis["ctx_queue.py"], "Play all unwatched shows in both views")
+tiles = run("")
+ctx_labels = [c[0] for c in [t for t in tiles if t[0].label == "Nu"][0][0].ctx]
+ok("Play all unwatched (queue)..." in ctx_labels and "Watch order (seasons and movies)..." in ctx_labels, "the boxset tile's right-click menu has the queue and the watch order")
+
+print("== create boxsets from Kodi movie sets")
+xbmc.SETS = [{"setid": 1, "title": "Film Saga", "art": {"poster": "setP", "fanart": "setF"},
+              "movies": [{"movieid": 10, "title": "Film One", "year": 2012}, {"movieid": 11, "title": "Film Two", "year": 2015}]},
+             {"setid": 2, "title": "Lonely", "art": {}, "movies": [{"movieid": 12, "title": "Solo", "year": 2001}]},
+             {"setid": 3, "title": "Empty Set", "art": {}, "movies": []}]
+store.save({"x1": box("Lonely", [])})
+runq("action=import_sets", multiselect=[[0, 1]])
+mo = store.load()
+sid = store.find_by_name(mo, "Film Saga")
+ok(sid and [r["title"] for r in mo[sid]["shows"]] == ["Film One", "Film Two"] and all(r.get("type") == "movie" for r in mo[sid]["shows"]), "a movie set becomes a boxset of movies")
+ok(mo[sid]["poster"] == "setP" and mo[sid]["fanart"] == "setF", "the set's poster and fanart become the boxset's artwork")
+ok(len([b for b in mo.values() if b["name"] == "Lonely"]) == 1 and [r["title"] for r in mo["x1"]["shows"]] == ["Solo"], "a set whose name matches an existing boxset extends it (no duplicate)")
+ok("Empty Set" not in D.LAST_MULTI["options"] and not any("Empty Set" in o for o in D.LAST_MULTI["options"]), "sets with no movies are not offered")
+ok(any(o.startswith("Lonely (1 movie)") and "already a boxset" in o for o in D.LAST_MULTI["options"]) and any(o == "Film Saga (2 movies)" for o in D.LAST_MULTI["options"]), "the list shows how many movies, and which already exist")
+before = store.load()
+runq("action=import_sets", multiselect=[None])
+ok(store.load() == before, "cancelling changes nothing")
+runq("action=import_sets", multiselect=[[0]])
+ok([r["title"] for r in store.load()[sid]["shows"]] == ["Film One", "Film Two"], "importing the same set again adds nothing twice")
+xbmc.SETS = []
+runq("action=import_sets")
+ok(any(k == "ok" for k, _ in D.LOG[-2:]), "no movie sets: a clear message")
+ok("Create boxsets from Kodi movie sets..." in [l for l, _ in main.menu_entries()], "the Boxsets menu offers it")
+
+print("== share a watch order as a file")
+
+share_dir = tempfile.mkdtemp()
+saved_lib, saved_movies, saved_store = list(xbmc.LIB), list(xbmc.MOVIES), store.load()
+xbmc.LIB[0]["uniqueid"] = {"imdb": "tt001", "tvdb": "111"}
+xbmc.LIB[1]["uniqueid"] = {"imdb": "tt002"}
+store.save({"s1": dict(box("Saga Order", [A, {"title": "Beta", "year": 2015}]), watch=[{"title": "Alpha", "year": 2010, "season": 1, "first": 2, "last": 3},
+                                                            {"title": "Beta", "year": 2015, "season": 1}])})
+runq("action=watch_export&bid=s1", browseSingle=[share_dir])
+out = os.path.join(share_dir, "watchorder-saga-order.json")
+ok(os.path.exists(out), "export writes watchorder-<name>.json into the chosen folder")
+pack = json.load(open(out, encoding="utf-8"))
+ok(pack["format"] == "tvboxsets-watchorder" and pack["name"] == "Saga Order" and len(pack["entries"]) == 2, "file has the format, name and entries")
+ok(pack["entries"][0] == {"title": "Alpha", "year": 2010, "season": 1, "first": 2, "last": 3, "ids": {"imdb": "tt001", "tvdb": "111"}}, "ranges and ids are exported")
+ok("/" not in json.dumps(pack) and "poster" not in json.dumps(pack) and "playcount" not in json.dumps(pack), "no paths, artwork or watched state in the file")
+store.save({"e": box("Empty", [A])})
+runq("action=watch_export&bid=e", browseSingle=[share_dir])
+ok(not os.path.exists(os.path.join(share_dir, "watchorder-empty.json")) and not any(k == "ok" for k, _ in D.LOG), "nothing to export: no file is written")
+ok(wopack.parse(pack) and wopack.parse({"format": "other", "entries": [{"title": "x"}]}) is None and wopack.parse({"format": wopack.FORMAT, "version": 99, "entries": [{"title": "x"}]}) is None and wopack.parse([]) is None, "parse accepts ours, rejects other, newer and non-objects")
+bad = wopack.parse({"format": wopack.FORMAT, "version": 1, "entries": [{"title": ""}, "junk", {"title": "Ok", "year": "2001", "season": "2", "first": "x"}]})
+ok(bad and bad["entries"] == [{"title": "Ok", "year": 2001, "season": 2}], "junk entries are dropped and values cleaned")
+
+# Someone else's library: Alpha has a different year and title spelling but the same imdb id; Beta is absent
+xbmc.LIB[:] = [dict(xbmc.LIB[0], title="Alpha (US)", year=2011, tvshowid=1)]
+store.save({})
+runq("action=watch_import", browseSingle=[out], select=[0])
+imp = store.load()
+iid = store.find_by_name(imp, "Saga Order")
+ok(iid and [r["title"] for r in imp[iid]["shows"]] == ["Alpha (US)", "Beta"], "import creates the boxset; matched by id the library's own title/year is used")
+ok(imp[iid]["watch"][0] == {"title": "Alpha (US)", "year": 2011, "season": 1, "first": 2, "last": 3}, "the range survives the import")
+ok(any(k == "ok" and "Beta" in str(v) and "not in your library" in str(v) for k, v in D.LOG), "the summary names what is missing")
+runq("action=watch_import", browseSingle=[out], select=[0], yesno=[False])
+ok(len(store.load()) == 1 and len(store.load()[iid]["watch"]) == 2, "importing twice into the same boxset asks before replacing; 'no' keeps it as is")
+store.save({"z": box("Other", [])})
+runq("action=watch_import", browseSingle=[out], select=[1, 0])
+ok([e["title"] for e in store.load()["z"]["watch"]] == ["Alpha (US)", "Beta"], "can be put into an existing boxset")
+runq("action=watch_import", browseSingle=[out], select=[-1])
+ok(len(store.load()) == 1, "cancelling at the menu changes nothing")
+junk = os.path.join(share_dir, "junk.json"); open(junk, "w").write("not json")
+before = store.load()
+runq("action=watch_import", browseSingle=[junk])
+ok(store.load() == before and any(k == "ok" for k, _ in D.LOG), "a file that isn't a watch order is refused with a message")
+runq("action=watch_import", browseSingle=[""])
+ok(store.load() == before, "no file chosen: nothing happens")
+ok("Import a watch order file..." in [l for l, _ in main.menu_entries()] and "Export a watch order file..." in [l for l, _ in main.menu_entries()], "the Boxsets menu offers import and export")
+store.save({"s1": dict(box("Saga Order", [A]), watch=[{"title": "Alpha", "year": 2010, "season": 1}]), "n": box("No Order", [A])})
+os.remove(out)
+D.Q.clear(); D.Q.update({"select": [0], "browseSingle": [share_dir]}); main.watch_export_pick()
+ok(os.path.exists(out), "Boxsets menu export: lists only boxsets with a watch order and saves the chosen one")
+before = store.load()
+D.Q.clear(); D.Q.update({"select": [-1]}); main.watch_export_pick()
+ok(store.load() == before, "cancelling the export picker does nothing")
+ok("action=watch_export" in run_script("ctx_watch_export.py"), "export context script")
+ok(vis.get("ctx_watch_export.py") and "action=watch" in vis["ctx_watch_export.py"], "the export entry is shown in the watch order view")
+xbmc.LIB[:] = saved_lib; xbmc.MOVIES[:] = saved_movies; store.save(saved_store)
+
+print("== boxset name on its own tile")
+store.save({"n1": box("Name Me", [A])})
+tiles = run("")
+ok(all(t[0].props.get("boxset_tile") == t[0].label for t in tiles if t[0].label == "Name Me"), "each boxset tile carries its name for the skin to draw")
+store.save({"n1": dict(box("Name Me", [A]), watch=[{"title": "Alpha", "year": 2010, "season": 1}])})
+
+print("== more smart rules: unwatched, recently added, rating")
+import datetime as _dt  # noqa: E402
+import rules as R  # noqa: E402
+now = _dt.datetime(2026, 10, 28, 12, 0, 0)
+show_w = {"title": "S", "year": 2020, "episode": 10, "watchedepisodes": 10, "rating": 8.2, "dateadded": "2026-10-20 08:00:00"}
+show_u = dict(show_w, watchedepisodes=3)
+mov_u = {"title": "M", "year": 2020, "playcount": 0, "rating": 6.1, "dateadded": "2025-01-01 08:00:00"}
+mov_w = dict(mov_u, playcount=2)
+ok(R.matches({"unwatched": True}, show_u) and not R.matches({"unwatched": True}, show_w), "unwatched: a show with episodes left")
+ok(R.matches({"unwatched": True}, mov_u) and not R.matches({"unwatched": True}, mov_w), "unwatched: a movie not yet played")
+ok(R.matches({"added_days": 14}, show_w, now) and not R.matches({"added_days": 7}, show_w, now) and not R.matches({"added_days": 30}, mov_u, now), "recently added: within N days")
+ok(not R.matches({"added_days": 30}, {"title": "x"}, now), "...an item with no date added never matches")
+ok(R.matches({"rating_min": 8}, show_w) and not R.matches({"rating_min": 8}, mov_u) and not R.matches({"rating_min": 5}, {"title": "x"}), "rating at least: unrated items don't match")
+ok(R.matches({"genre": "Drama", "unwatched": True}, dict(show_u, genre=["Drama"])) and not R.matches({"genre": "Drama", "unwatched": True}, dict(show_w, genre=["Drama"])), "new rules combine (AND) with the old ones")
+ok(R.has_filters({"unwatched": True}) and R.has_filters({"rating_min": 7}) and not R.has_filters({"media": "tv"}), "any one new rule counts as a rule")
+ok(R.describe({"media": "both", "unwatched": True, "added_days": 30, "rating_min": 7.5}) == "TV shows and movies; unwatched only; added in the last 30 days; rating 7.5 or more", "described in words")
+store.save({"r": box("Recent", [])})
+D.Q.clear(); D.Q.update({"select": [6, 7, 9], "numeric": ["30"]}); main.edit_rules("r")
+ok(store.load()["r"].get("rules", {}).get("unwatched") is True and store.load()["r"]["rules"].get("added_days") == 30, "the editor sets unwatched and days")
+D.Q.clear(); D.Q.update({"select": [8, 2, 9]}); main.edit_rules("r")
+ok(store.load()["r"]["rules"].get("rating_min") == 6, "the editor picks a rating from the list")
+D.Q.clear(); D.Q.update({"select": [6, 7, 8, 1, 9], "numeric": [""]}); main.edit_rules("r")
+ok(not store.load()["r"]["rules"].get("unwatched") and "added_days" not in store.load()["r"]["rules"] and store.load()["r"]["rules"]["rating_min"] == 5, "toggling off / blank clears them")
+
+print("== boxset poster collage")
+import collage  # noqa: E402
+from PIL import Image  # noqa: E402
+ok(collage.source_path("image://http%3a%2f%2fx.test%2fp.jpg/") == "http://x.test/p.jpg" and collage.source_path("C:/a/p.jpg") == "C:/a/p.jpg" and collage.source_path("image://video@C%3a%5cm.mkv/") == "" and collage.source_path("") == "", "Kodi's image:// wrapping is undone; grabbed video frames are skipped")
+for n, cells in ((1, 1), (2, 2), (3, 3), (4, 4), (5, 4), (6, 6)):
+    lay = collage.layout(n)
+    inside = all(x >= 0 and y >= 0 and x + w <= 600 and y + h <= 900 and w > 0 and h > 0 for x, y, w, h in lay)
+    overlap = any(a is not b and a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3] for a in lay for b in lay)
+    ok(len(lay) == cells and inside and not overlap, "layout for {} posters: {} cells, inside the poster, no overlap".format(n, cells))
+pic_dir = tempfile.mkdtemp()
+def png(name, color, size=(200, 300)):
+    p = os.path.join(pic_dir, name); Image.new("RGB", size, color).save(p); return p
+cols = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
+raw = [open(png("p%d.png" % i, c, (200 + 40 * i, 300)), "rb").read() for i, c in enumerate(cols)]
+out_png = collage.build(raw)
+img = Image.open(__import__("io").BytesIO(out_png))
+ok(img.size == (600, 900), "the collage is a 600x900 poster")
+ok(img.getpixel((50, 50)) == (255, 0, 0) and img.getpixel((550, 50)) == (0, 255, 0) and img.getpixel((50, 850)) == (0, 0, 255) and img.getpixel((550, 850)) == (255, 255, 0), "four posters fill the four corners, in order")
+ok(collage.build([b"junk"]) is None and collage.build([b"junk", raw[0]]) is not None, "undecodable posters are skipped")
+saved_lib2 = [dict(x) for x in xbmc.LIB]
+for i, item in enumerate(xbmc.LIB[:3]):
+    item["art"] = dict(item["art"], poster=png("lib%d.png" % i, cols[i]))
+store.save({"c1": box("Collage Me", [A, B, G])})
+runq("action=art&bid=c1&kind=poster", select=[3])
+poster = store.load()["c1"]["poster"]
+ok(poster.endswith(".png") and os.path.exists(poster) and Image.open(poster).size == (600, 900), "the menu makes a collage and sets it as the boxset poster")
+first = poster
+__import__("time").sleep(1.1)
+runq("action=art&bid=c1&kind=poster", select=[3])
+second = store.load()["c1"]["poster"]
+ok(second != first and not os.path.exists(first) and os.path.exists(second), "making it again replaces the old file (new name, so Kodi's image cache refreshes)")
+runq("action=art&bid=c1&kind=poster", select=[2])
+ok(store.load()["c1"]["poster"] == "", "Automatic puts things back")
+store.save({"c2": box("Single", [A])})
+runq("action=art&bid=c2&kind=poster", select=[3])
+ok(store.load()["c2"]["poster"] == "", "fewer than two posters: no collage")
+runq("action=art&bid=c2&kind=fanart", select=[3])
+ok(store.load()["c2"].get("fanart", "") == "", "the collage option is only for posters")
+import builtins  # noqa: E402
+real_import = builtins.__import__
+def no_pil(name, *a, **k):
+    if name == "PIL" or name.startswith("PIL."):
+        raise ImportError(name)
+    return real_import(name, *a, **k)
+store.save({"c3": box("No Pil", [A, B])})
+builtins.__import__ = no_pil
+try:
+    runq("action=art&bid=c3&kind=poster", select=[3])
+finally:
+    builtins.__import__ = real_import
+ok(store.load()["c3"]["poster"] == "" and any(k == "ok" and "Pillow" in str(v) for k, v in D.LOG), "without Pillow a clear message explains what to install")
+xbmc.LIB[:] = saved_lib2
+
+print("== boxsets in Kodi's own library menu (other skins)")
+import libnodes  # noqa: E402
+sysvid = os.path.join(ROOT, "xbmc", "system", "library", "video")
+os.makedirs(sysvid, exist_ok=True); open(os.path.join(sysvid, "movies.xml"), "w").write("<node/>")
+store.save({"t1": box("Tv Only", [A]), "m1": box("Mov & Co", [{"title": "Film One", "year": 2012, "type": "movie"}]),
+            "mix": box("Mixed", [B, {"title": "Film Two", "year": 2015, "type": "movie"}]),
+            "sm": dict(box("Smart <1>", []), rules={"media": "both", "genre": "Drama"})})
+files = libnodes.build()
+ok(sorted(files) == sorted(["index.xml", "boxset-t1-tvshows.xml", "boxset-m1-movies.xml", "boxset-mix-tvshows.xml",
+                            "boxset-mix-movies.xml", "boxset-sm-tvshows.xml", "boxset-sm-movies.xml"]), "one node per boxset and media type")
+ok('field="tag" operator="is"><value>Boxset: Tv Only</value>' in files["boxset-t1-tvshows.xml"] and "<content>tvshows</content>" in files["boxset-t1-tvshows.xml"], "a node filters on the boxset's tag")
+ok("<label>Mixed (TV shows)</label>" in files["boxset-mix-tvshows.xml"] and "<label>Tv Only</label>" in files["boxset-t1-tvshows.xml"], "labels name the type only when a boxset has both")
+ok("Mov &amp; Co" in files["boxset-m1-movies.xml"] and "Smart &lt;1&gt;" in files["boxset-sm-movies.xml"], "names are XML-escaped")
+ET.fromstring(files["boxset-sm-movies.xml"]); [ET.fromstring(v) for v in files.values()]
+ok(True, "every file is well-formed XML")
+D.Q.clear(); D.Q.update({"yesno": [False]}); libnodes.enable()
+ok(not os.path.exists(os.path.join(ROOT, "profile", "library")), "declining writes nothing")
+D.Q.clear(); D.Q.update({"yesno": [True]}); libnodes.enable()
+lib_dir = os.path.join(ROOT, "profile", "library", "video")
+ok(os.path.exists(os.path.join(lib_dir, "movies.xml")), "Kodi's built-in nodes are copied first")
+ok(os.path.exists(os.path.join(lib_dir, "tvboxsets", "index.xml")) and len(os.listdir(os.path.join(lib_dir, "tvboxsets"))) == 7, "the TV Boxsets folder is written")
+ok(xbmcaddon.SETTINGS.get("library_nodes") is True, "the setting remembers it is on")
+store.save({"t1": box("Tv Only", [A])})
+libnodes.write()
+ok(sorted(os.listdir(os.path.join(lib_dir, "tvboxsets"))) == ["boxset-t1-tvshows.xml", "index.xml"], "deleted boxsets lose their entries")
+ok(os.path.exists(os.path.join(lib_dir, "movies.xml")), "...and the built-in nodes are untouched")
+D.Q.clear(); D.Q.update({"yesno": [True]}); libnodes.disable()
+ok(not os.path.exists(os.path.join(lib_dir, "tvboxsets")) and os.path.exists(os.path.join(lib_dir, "movies.xml")) and not xbmcaddon.SETTINGS["library_nodes"], "removing deletes only our folder")
+xbmcaddon.SETTINGS["tag_prefix"] = ""
+ok(libnodes.write() is None, "no tag prefix: nothing is written")
+xbmcaddon.SETTINGS["tag_prefix"] = "Boxset:"
+ok("Add boxsets to Kodi's library menu (other skins)..." in [l for l, _ in main.menu_entries()], "the Boxsets menu offers it")
 
 print("== 'Boxsets...' on a library show or movie")
 store.save({"a": box("Alpha Manual", [A]), "b": dict(box("Beta Smart", []), rules={"media": "tv", "genre": "Drama"}), "c": box("Gamma Only", [G])})
@@ -970,8 +1334,12 @@ pv = open(os.path.join(xdir, "View_54_InfoWall.xml"), encoding="utf-8").read()
 ok(pv.count('content="TvBoxsetsMovieTag"') >= 1 and pv.count('content="TvBoxsetsMovieTag"') == pv.count('content="TvBoxsetsNameBadge"'), "every poster gets a movie tag next to its name badge")
 skinpatch.patch_badges(xdir)
 ok(open(os.path.join(xdir, "View_54_InfoWall.xml"), encoding="utf-8").read() == pv, "patching again leaves the movie tags unchanged (no duplicates)")
+ok(pv.count('content="TvBoxsetsTileName"') == pv.count('content="TvBoxsetsNameBadge"') >= 1, "every poster also gets the boxset's own name label (boxset list and widget tiles)")
+inc = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read()
+ok('name="TvBoxsetsTileName"' in inc and "ListItem.Property(boxset_tile)" in inc, "the include shows the boxset_tile property")
+ET.fromstring(inc.encode("utf-8"))
 ok(rb.find(".//centertop").text == "50%" and "DBID" in rb.find(".//texture").text, "row badge is vertically centred and uses the same per-item picture")
-text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v5", "tvboxsets-badge v1")
+text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v6", "tvboxsets-badge v1")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(text)
 ok(not skinpatch.has_badges(xdir), "a skin copy made with badge version 1 is not counted as current")
 skinpatch.patch_badges(xdir)
@@ -1110,7 +1478,7 @@ text = open(os.path.join(xdir, "View_51_Poster.xml"), encoding="utf-8", newline=
 text = text.replace("TvBoxsetsNameBadge", "TvBoxsetsBadge")
 with open(os.path.join(xdir, "View_51_Poster.xml"), "w", encoding="utf-8", newline="") as f:
     f.write(text)
-inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v5", "tvboxsets-badge v2")
+inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v6", "tvboxsets-badge v2")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(inc_text)
 ok(not skinpatch.has_badges(xdir), "a skin copy from the previous version (round badges on posters) counts as out of date")
 skinpatch.patch_badges(xdir)

@@ -131,6 +131,15 @@ def bump_reload():
         pass
 
 
+def publish_flags():
+    """Tell the skin copy about display settings (it reads Home window properties)."""
+    try:
+        xbmcgui.Window(10000).setProperty(
+            skinpatch.HIDE_CATEGORIES_PROPERTY, "true" if setting_bool("hide_categories", False) else "")
+    except Exception:  # noqa: BLE001 - a display flag must never break anything else
+        pass
+
+
 def dump_text(data):
     """JSON text for a data file / export, in the current format."""
     return json.dumps({"format": DATA_FORMAT, "saved_by": ADDON.getAddonInfo("version"),

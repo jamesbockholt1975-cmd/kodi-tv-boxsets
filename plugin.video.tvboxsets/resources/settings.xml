@@ -56,9 +56,19 @@
 					<default>true</default>
 					<control type="toggle"/>
 				</setting>
+				<setting id="library_nodes" type="boolean" label="30028" help="30029">
+					<level>0</level>
+					<default>false</default>
+					<control type="toggle"/>
+				</setting>
 				<setting id="show_names" type="boolean" label="30024" help="30025">
 					<level>0</level>
 					<default>true</default>
+					<control type="toggle"/>
+				</setting>
+				<setting id="hide_categories" type="boolean" label="30026" help="30027">
+					<level>0</level>
+					<default>false</default>
 					<control type="toggle"/>
 				</setting>
 				<setting id="tag_prefix" type="string" label="30014" help="30015">

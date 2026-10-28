@@ -251,3 +251,60 @@ def insert_runs(entries, base, season, spans, last_episode):
             out.append(new)
         added += 1
     return out, added
+
+
+# --------------------------------------------------------------------------
+# What is left to watch, in order (the "Next up" row and the play queue)
+# --------------------------------------------------------------------------
+
+def _unwatched_episodes(item, season=None):
+    """Unwatched episodes of a show (real seasons only), or of one season, in order."""
+    params = {"tvshowid": item["tvshowid"],
+              "properties": ["season", "episode", "title", "plot", "playcount", "art"],
+              "filter": {"field": "playcount", "operator": "is", "value": "0"}}
+    if season is not None:
+        params["season"] = season
+    eps = jsonrpc("VideoLibrary.GetEpisodes", params).get("result", {}).get("episodes", [])
+    if season is None:
+        eps = [e for e in eps if e.get("season", 1) > 0]  # specials only when asked for by season
+    return sorted(eps, key=lambda e: (e.get("season", 0), e.get("episode", 0)))
+
+
+def playables(bs, lib, use_watch_order=True):
+    """Everything not yet watched, in viewing order, as ("movie", item) or ("episode", item, episode).
+
+    Uses the watch order when the boxset has one (and use_watch_order is true), otherwise the
+    boxset's own order. A generator, so asking for just the first one stays cheap.
+    """
+    if use_watch_order and bs.get("watch"):
+        for row in resolve(bs, lib):
+            item = row["item"]
+            if not item:
+                continue
+            if row["media"] == "movie":
+                if (item.get("playcount") or 0) == 0:
+                    yield ("movie", item)
+            elif row["season"]:
+                if row.get("episodes") is not None:
+                    eps = [e for e in row["episodes"] if (e.get("playcount") or 0) == 0]
+                else:
+                    eps = _unwatched_episodes(item, row["entry"].get("season", 1))
+                for ep in eps:
+                    yield ("episode", item, ep)
+        return
+    for ref, item in ordered_entries(bs, lib):
+        if not item:
+            continue
+        if media_of(ref) == "movie":
+            if (item.get("playcount") or 0) == 0:
+                yield ("movie", item)
+        else:
+            for ep in _unwatched_episodes(item):
+                yield ("episode", item, ep)
+
+
+def next_up(bs, lib):
+    """The next thing to watch in the boxset's watch order, or None (no watch order, or all watched)."""
+    if not bs.get("watch"):
+        return None
+    return next(playables(bs, lib, True), None)

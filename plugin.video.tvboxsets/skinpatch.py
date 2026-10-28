@@ -84,7 +84,8 @@ RELOAD_PROPERTY = "tvboxsets_reload"
 _RELOAD = "&reload=$INFO[Window(Home).Property({})]".format(RELOAD_PROPERTY)
 WIDGET_PATH = PLUGIN_PATH + "?action=widget" + _RELOAD
 WIDGET_CONTINUE_PATH = PLUGIN_PATH + "?action=widget&filter=in_progress" + _RELOAD
-WIDGET_MARKER = "tvboxsets-widget v3"   # bump when the widget block changes
+WIDGET_NEXT_PATH = PLUGIN_PATH + "?action=widget&filter=next_up" + _RELOAD
+WIDGET_MARKER = "tvboxsets-widget v4"   # bump when the widget block changes
 
 
 def has_widget(path):
@@ -133,6 +134,12 @@ def _widget_block(indent, nl):
         '\t\t\t<param name="widget_target" value="videos"/>',
         '\t\t\t<param name="list_id" value="{lid2}"/>',
         '\t\t</include>',
+        '\t\t<include content="WidgetListPoster">',
+        '\t\t\t<param name="content_path" value="{npath}"/>',
+        '\t\t\t<param name="widget_header" value="Next up (watch order)"/>',
+        '\t\t\t<param name="widget_target" value="videos"/>',
+        '\t\t\t<param name="list_id" value="{lid3}"/>',
+        '\t\t</include>',
         '\t</control>',
         '\t<include content="WidgetScrollbar" condition="Skin.HasSetting(touchmode)">',
         '\t\t<param name="scrollbar_id" value="{sb}"/>',
@@ -141,7 +148,8 @@ def _widget_block(indent, nl):
     ]
     return nl.join(indent + ln.format(
         mid=MENU_ID, wid=WIDGET_ID, marker=WIDGET_MARKER, gl=int(MENU_ID) + 1,
-        sb=int(MENU_ID) + 10, lid=int(MENU_ID) + 100, lid2=int(MENU_ID) + 101,
+        sb=int(MENU_ID) + 10, lid=int(MENU_ID) + 100, lid2=int(MENU_ID) + 101, lid3=int(MENU_ID) + 102,
+        npath=escape(WIDGET_NEXT_PATH, {'"': "&quot;"}),
         path=escape(WIDGET_PATH, {'"': "&quot;"}), cpath=escape(WIDGET_CONTINUE_PATH, {'"': "&quot;"}))
         for ln in lines)
 
@@ -176,11 +184,101 @@ def patch_widget(path):
 
 
 # --------------------------------------------------------------------------
+# Hide the "Categories" rows on the home screen (a setting of this add-on)
+# --------------------------------------------------------------------------
+
+HIDE_CATEGORIES_PROPERTY = "tvboxsets_hide_categories"  # Home window property, set by the service
+_HIDE_FLAG = "String.IsEqual(Window(Home).Property({}),true)".format(HIDE_CATEGORIES_PROPERTY)
+_CATEGORY_KINDS = "movies|tvshows|musicvideos"   # these have a menu click that must keep opening the titles
+# Every home-screen "Categories" row Estuary lets you switch off. (The rows for the Videos and Pictures
+# menus are their only content, so they stay.)
+_ROW_KINDS = "movies|tvshows|musicvideos|music|addons|tv|radio"
+# The row of category tiles: <include content="WidgetListCategories" condition="... + !Skin.HasSetting(home_no_X_categories_widget)">
+_CATEGORY_WIDGET = re.compile(
+    r'(<include content="WidgetListCategories" condition="[^"]*!Skin\.HasSetting\(home_no_(?:' + _ROW_KINDS
+    + r')_categories_widget\))(")')
+CATEGORIES_MARKER = "tvboxsets-categories v2"   # bump when the Home.xml changes below change
+# Estuary's menu click: with that row hidden (and "flatten" off) it opens the category list instead of the titles.
+_CATEGORY_CLICK = re.compile(
+    r'^([ \t]*<onclick condition="[^"]*Skin\.HasSetting\(home_no_(?:' + _CATEGORY_KINDS
+    + r')_categories_widget\)[^"]*!System\.GetBool\(myvideos\.flatten\)">ActivateWindow\(Videos,videodb://[a-z]+/),return\)</onclick>',
+    re.M)
+# Music videos have a single unconditional click that opens the library's top level.
+_MUSICVIDEO_CLICK = re.compile(
+    r'^([ \t]*)<onclick>ActivateWindow\(Videos,musicvideos,return\)</onclick>[ \t]*(\r?\n)', re.M)
+_MV_HIDDEN = "Skin.HasSetting(home_no_musicvideos_categories_widget) | " + _HIDE_FLAG
+
+# Version 1 of this patch (0.15.x) paired each click with a flag test; undone before the current patch is applied.
+_V1_PAIR = re.compile(
+    r'^([ \t]*)<onclick condition="([^"]*) \+ !' + re.escape(_HIDE_FLAG) + r'">(ActivateWindow\(Videos,videodb://[a-z]+/,return\))</onclick>[ \t]*(\r?\n)'
+    r'[ \t]*<onclick condition="[^"]*">ActivateWindow\(Videos,videodb://[a-z]+/titles/,return\)</onclick>[ \t]*\r?\n', re.M)
+_V1_MUSICVIDEO = re.compile(
+    r'^([ \t]*)<onclick condition="!' + re.escape(_HIDE_FLAG) + r'">ActivateWindow\(Videos,musicvideos,return\)</onclick>[ \t]*(\r?\n)'
+    r'[ \t]*<onclick condition="' + re.escape(_HIDE_FLAG) + r'">ActivateWindow\(Videos,videodb://musicvideos/titles/,return\)</onclick>[ \t]*\r?\n', re.M)
+_V2_MUSICVIDEO = re.compile(
+    r'^([ \t]*)<onclick condition="!' + re.escape("Skin.HasSetting(home_no_musicvideos_categories_widget)") + r' \+ !' + re.escape(_HIDE_FLAG)
+    + r'">ActivateWindow\(Videos,musicvideos,return\)</onclick>[ \t]*(\r?\n)'
+    r'[ \t]*<onclick condition="' + re.escape(_MV_HIDDEN) + r'">ActivateWindow\(Videos,videodb://musicvideos/titles/,return\)</onclick>[ \t]*\r?\n', re.M)
+
+
+def has_categories(path):
+    """True if Home.xml honours the hide-categories setting and opens the titles (or has nothing to patch)."""
+    try:
+        text = _read(path)
+    except OSError:
+        return False
+    if CATEGORIES_MARKER in text:
+        return True
+    return HIDE_CATEGORIES_PROPERTY not in text and not _CATEGORY_WIDGET.search(text)
+
+
+def _unpatch_categories(text):
+    """Back to Estuary's original lines (undo any earlier version of this patch)."""
+    text = re.sub(r"[ \t]*<!-- tvboxsets-categories v\d+ -->[ \t]*\r?\n?", "", text)
+    text = _V1_PAIR.sub(lambda m: '{}<onclick condition="{}">{}</onclick>{}'.format(m.group(1), m.group(2), m.group(3), m.group(4)), text)
+    text = _V1_MUSICVIDEO.sub(lambda m: "{}<onclick>ActivateWindow(Videos,musicvideos,return)</onclick>{}".format(m.group(1), m.group(2)), text)
+    text = _V2_MUSICVIDEO.sub(lambda m: "{}<onclick>ActivateWindow(Videos,musicvideos,return)</onclick>{}".format(m.group(1), m.group(2)), text)
+    return text.replace(" + !" + _HIDE_FLAG, "")  # the Categories rows
+
+
+def patch_categories(path):
+    """Let the add-on's setting hide the Categories rows, and make clicking Movies / TV shows /
+    Music videos open the titles whenever their row is hidden (by this setting or by Estuary's own
+    switch). Returns True if Home.xml was changed."""
+    original = _read(path)
+    if CATEGORIES_MARKER in original:
+        return False
+    text = _unpatch_categories(original) if HIDE_CATEGORIES_PROPERTY in original else original
+    nl = "\r\n" if "\r\n" in text else "\n"
+    first = []
+
+    def row(m):
+        extra = " + !" + _HIDE_FLAG
+        if not first:  # the version marker, as an XML comment just before the first row
+            first.append(1)
+            line_start = m.string.rfind("\n", 0, m.start()) + 1
+            indent = re.match(r"[ \t]*", m.string[line_start:m.start()]).group(0)
+            return "<!-- {} -->{}{}{}{}".format(CATEGORIES_MARKER, nl, indent, m.group(1), extra + m.group(2))
+        return m.group(1) + extra + m.group(2)
+    changed = _CATEGORY_WIDGET.sub(row, text)
+    changed = _CATEGORY_CLICK.sub(lambda m: m.group(1) + "titles/,return)</onclick>", changed)
+    changed = _MUSICVIDEO_CLICK.sub(lambda m: (
+        '{i}<onclick condition="!Skin.HasSetting(home_no_musicvideos_categories_widget) + !{f}">'
+        "ActivateWindow(Videos,musicvideos,return)</onclick>{nl}"
+        '{i}<onclick condition="{h}">ActivateWindow(Videos,videodb://musicvideos/titles/,return)</onclick>{nl}'
+    ).format(i=m.group(1), f=_HIDE_FLAG, h=_MV_HIDDEN, nl=m.group(2)), changed)
+    if changed == original:
+        return False
+    _write(path, changed)
+    return True
+
+
+# --------------------------------------------------------------------------
 # Library badges: a small boxset icon on posters of items that are in a boxset
 # --------------------------------------------------------------------------
 
 BADGE_FILE = "Includes_TvBoxsets.xml"
-BADGE_MARKER = "tvboxsets-badge v5"
+BADGE_MARKER = "tvboxsets-badge v6"
 BADGE_REV_PROPERTY = "tvboxsets_badge_rev"  # the add-on sets this to the current picture folder number
 BADGE_DIR_SPECIAL = ("special://profile/addon_data/plugin.video.tvboxsets/badges/"
                      "r$INFO[Window(Home).Property(" + BADGE_REV_PROPERTY + ")]")
@@ -249,6 +347,33 @@ BADGE_INCLUDE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 \t\t\t\t\t<font>font12</font>
 \t\t\t\t\t<textcolor>FFFFFFFF</textcolor>
 \t\t\t\t\t<label>MOVIE</label>
+\t\t\t\t</control>
+\t\t\t</control>
+\t\t</definition>
+\t</include>
+\t<include name="TvBoxsetsTileName">
+\t\t<param name="left">10</param>
+\t\t<param name="top">10</param>
+\t\t<param name="width">200</param>
+\t\t<param name="height">32</param>
+\t\t<definition>
+\t\t\t<control type="group">
+\t\t\t\t<left>$PARAM[left]</left>
+\t\t\t\t<top>$PARAM[top]</top>
+\t\t\t\t<visible>!String.IsEmpty(ListItem.Property(boxset_tile))</visible>
+\t\t\t\t<control type="image">
+\t\t\t\t\t<width>$PARAM[width]</width>
+\t\t\t\t\t<height>$PARAM[height]</height>
+\t\t\t\t\t<texture colordiffuse="EB0D1B2D" border="6">colors/white.png</texture>
+\t\t\t\t</control>
+\t\t\t\t<control type="label">
+\t\t\t\t\t<left>10</left>
+\t\t\t\t\t<right>10</right>
+\t\t\t\t\t<height>$PARAM[height]</height>
+\t\t\t\t\t<aligny>center</aligny>
+\t\t\t\t\t<font>font12</font>
+\t\t\t\t\t<textcolor>FFF0F4F8</textcolor>
+\t\t\t\t\t<label>$INFO[ListItem.Property(boxset_tile)]</label>
 \t\t\t\t</control>
 \t\t\t</control>
 \t\t</definition>
@@ -333,7 +458,7 @@ def patch_badges(xml_dir):
     return placed
 
 
-_OUR_INCLUDE = re.compile(r'\r?\n[ \t]*<include content="TvBoxsets(?:(?:Name|Row)?Badge|MovieTag)">.*?</include>', re.S)
+_OUR_INCLUDE = re.compile(r'\r?\n[ \t]*<include content="TvBoxsets(?:(?:Name|Row)?Badge|MovieTag|TileName)">.*?</include>', re.S)
 
 
 def _strip_placements(text):
@@ -364,6 +489,9 @@ def _place_posters(text, nl):
         out.append(text[last:m.end()] + nl + _snippet(
             indent, nl, "TvBoxsetsNameBadge", left=left + 10, top=top + 10,
             width=max(60, width - 20), height=height))
+        # the boxset's own name on its tile (the plugin sets boxset_tile on the boxset list and the Next up row)
+        out[-1] += nl + _snippet(indent, nl, "TvBoxsetsTileName", left=left + 10, top=top + 10,
+                                 width=max(60, width - 20), height=height)
         # a MOVIE tag in the top-right corner (the plugin sets the property only on movies in a boxset)
         out[-1] += nl + _snippet(indent, nl, "TvBoxsetsMovieTag", left=max(left, left + width - 94), top=top + 10)
         last = m.end()
@@ -407,6 +535,7 @@ def build_skin(src, dst):
         patch_addon_xml(os.path.join(dst, "addon.xml"))
         patch_home_xml(os.path.join(dst, "xml", "Home.xml"))
         patch_widget(os.path.join(dst, "xml", "Home.xml"))
+        patch_categories(os.path.join(dst, "xml", "Home.xml"))
         patch_badges(os.path.join(dst, "xml"))
     except Exception:
         shutil.rmtree(dst, ignore_errors=True)

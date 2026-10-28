@@ -1,5 +1,121 @@
 # Changelog
 
+## 0.21.1 (alpha)
+- **Boxset name on its poster.** Views such as InfoWall draw no title under a poster, so in the Boxsets list
+  (and the home screen Boxsets row) you could not tell which boxset a tile was. Each boxset tile now carries
+  its name, and the Estuary (Boxsets) copy draws it as a dark label in the top-left corner of the poster, the
+  same place and style as the boxset-name labels on items inside a boxset. The Next up row's tiles show the
+  boxset they come from the same way. Needs the skin update once (badge include version 6).
+- Tests: 560 checks.
+
+## 0.21.0 (alpha)
+- **More smart-boxset rules.** The Smart rules editor gained **Unwatched only** (a movie not yet played, or a
+  show with episodes left), **Added in the last N days** and **Rating at least** (5 to 9). They combine
+  (AND) with genre, tag, studio, years and title, and count as rules on their own. Studio already existed.
+  They are evaluated live when a boxset is shown; the Kodi tags and library menu entries follow at the next
+  sync (when boxsets change or Kodi starts).
+- **Boxset poster collage.** Set boxset artwork > Poster > **Make a collage from the posters inside this
+  boxset** builds one 2:3 poster from up to six items (2 side by side, 3 as one tall plus two, 4 as 2x2,
+  6 as 3x2) and sets it as the boxset's poster; making it again replaces the old file, and Automatic puts the
+  first item's poster back. Needs Pillow, which Kodi supplies as the optional add-on
+  **Python Imaging Library** (`script.module.pil`); without it a message says what to install and nothing
+  else changes.
+- CI installs Pillow so the collage tests run there too.
+- Tests: 556 checks.
+
+## 0.20.1 (alpha)
+- **Fix: no export in the Boxsets menu.** Import a watch order file was there but export was only a
+  right-click entry inside a watch order. Added **Export a watch order file...** to the Boxsets menu: it lists
+  the boxsets that have a watch order and saves the one you pick.
+- Tests: 528 checks.
+
+## 0.20.0 (alpha)
+- **Boxsets in any skin.** Boxsets menu > **Add boxsets to Kodi's library menu (other skins)...** writes Kodi
+  library nodes: a "TV Boxsets" folder under Videos > Library with one entry per boxset and media type
+  (TV shows, movies), each a filter on the boxset's Kodi tag. Skins that don't have the Estuary (Boxsets)
+  home rows can then browse boxsets from their normal Videos menu. If you have no custom library folder yet,
+  Kodi's built-in nodes are copied into your profile first (unchanged), since Kodi uses a custom folder
+  instead of the built-in one. The entries follow your boxsets automatically (the service refreshes them
+  when boxsets change); **Remove boxsets from Kodi's library menu...** deletes only the add-on's own folder.
+  Needs the boxset tags (and a tag prefix); restart Kodi once after adding.
+- Tests: 526 checks.
+
+## 0.19.0 (alpha)
+- **Share a watch order.** Inside a watch order, right-click > **Export this watch order to a file...** saves
+  a small `.json` file (name, then each season, episode range or movie with title, year and the IMDb / TMDB /
+  TVDB ids Kodi knows). No paths, artwork or watched state are in it. **Boxsets menu > Import a watch order
+  file...** reads one: it matches every entry to your library by id first, then title and year, then a unique
+  title, and puts the order into a new boxset (or one you pick, asking before it replaces an existing order).
+  Entries you don't have yet are kept, show as "not in library", and are listed in a summary.
+- Tests: 511 checks.
+
+## 0.18.1 (alpha)
+- **Clearer removing inside the watch order.** The only remove entry there was labelled "Remove from this
+  boxset" although it took the entry out of the watch order only. Now there are two, named for what they do:
+  **Remove from the watch order** (just that entry; the show or movie stays in the boxset) and
+  **Remove from this boxset** (takes the show or movie out of the boxset, after asking; its seasons and
+  episodes then leave the watch order view too).
+- Tests: 491 checks.
+
+## 0.18.0 (alpha)
+- **Create boxsets from Kodi movie sets.** New entry in the Boxsets menu. It lists the movie sets in your
+  Kodi library (with how many movies each has, and which already exist as a boxset), you tick the ones you
+  want, and each becomes a boxset of those movies, using the set's poster and fanart unless the boxset
+  already has its own. A set with the same name as an existing boxset extends it instead of making a
+  duplicate; nothing is added twice. Kodi's sets are not changed. Once a set is a boxset you can add the
+  matching TV shows to it and give it a watch order.
+- Tests: 489 checks.
+
+## 0.17.0 (alpha)
+- **Next up (watch order) row on the home screen.** A third row under Boxsets, next to "Continue watching":
+  one tile per boxset that has a watch order, showing the next unwatched episode (or movie) in that order,
+  labelled with the boxset's name and ready to play with one click. It follows the order you arranged:
+  seasons, crossover episodes and movies. Boxsets without a watch order have no tile (use **Fill the watch
+  order from this boxset**). The row refreshes when you watch something or edit a boxset.
+- **Play all unwatched (queue).** New right-click entry on a boxset (in the list and inside it) and inside the
+  watch order: queues every unwatched episode and movie, in the watch order if the boxset has one (inside the
+  watch order always), otherwise in the boxset's own order, and asks whether to **play them now** (replaces the
+  video queue and starts at the first item) or **add them to the end of the queue**. Specials are only queued
+  when a watch-order entry asks for them.
+- The boxset tile's right-click menu also gained **Watch order (seasons and movies)...**.
+- Needs the skin update once (the widget block is version 4).
+- Tests: 480 checks.
+
+## 0.16.1 (alpha)
+- **Fix: Movies / TV shows / Music videos opened the category list.** Estuary sends the click to the category
+  list whenever that Categories row is hidden with its own skin switch (Settings > Home screen). 0.15.x only
+  corrected the click when this add-on's "Hide the Categories rows" setting was on, so hiding the row with the
+  skin switch still gave the category list. In the Estuary (Boxsets) copy the click now opens the titles
+  whenever the row is hidden, by either switch. Music videos: titles when its row is hidden, the usual screen
+  otherwise.
+- A Home.xml patched by 0.15.x is recognised as out of date and upgraded in place (no duplicate lines); run
+  the skin update once.
+- Tests: 464 checks.
+
+## 0.16.0 (alpha)
+- **Full information page inside a boxset.** Shows and movies in a boxset (and in its watch order) used to
+  carry only a few fields (plot, year, genres), so their information page looked thin. They now carry what
+  Kodi has for the item: cast (with roles), ratings and votes, your rating, content certificate, studio,
+  premiere date, runtime, original and sort title, IMDb/unique ids, date added, tags, and for movies tagline,
+  plot outline, director, writer, country, trailer, set and top-250. The full record is asked for one item at
+  a time for what is on screen (a cast list for the whole library would be far too heavy).
+- Needs no skin update.
+- Tests: 459 checks.
+
+## 0.15.1 (alpha)
+- **New setting: hide the Categories rows.** Settings > "Hide the Categories rows on the home screen" removes
+  the row of category tiles shown on the home screen under **Movies, TV shows, Music videos, Music, Add-ons,
+  TV and Radio** (all seven rows Estuary lets you switch off; the Videos and Pictures menus keep theirs, as
+  they hold nothing else). Checked against a real Estuary Home.xml: 7 rows. Clicking those menu items still opens the titles straight
+  away, whatever Estuary's own "categories widget" switch says (Estuary otherwise opens the category list
+  once that row is hidden). Takes effect straight away; no restart.
+- How: the Estuary (Boxsets) copy's Home.xml now checks a Home window property
+  (`tvboxsets_hide_categories`, set by the add-on's service from the setting) on those rows and on the
+  Movies / TV shows / Music videos menu clicks. The Genres and Studios rows are untouched. A copy built before this version counts as out
+  of date: run the skin update once. Only the Estuary (Boxsets) copy is affected, never your normal Estuary.
+- Diagnostics report shows whether the copy has it and the setting's value.
+- Tests: 454 checks.
+
 ## 0.14.0 (alpha)
 - **Crossover episodes in the watch order.** A watch-order entry can now be a single episode or a run of
   episodes of a season, not only a whole season or a movie. New right-click entry inside the watch order:

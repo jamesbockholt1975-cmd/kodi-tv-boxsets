@@ -119,3 +119,19 @@ msgstr ""
 msgctxt "#30025"
 msgid "The badge on a poster becomes a small label with the boxset name (or the first name and '+1' if the item is in several). Turn off for the plain round icon. Works in the Estuary (Boxsets) skin copy only."
 msgstr ""
+
+msgctxt "#30026"
+msgid "Hide the Categories rows on the home screen"
+msgstr ""
+
+msgctxt "#30027"
+msgid "Removes the row of category tiles (Titles, Genres, Years...) that shows on the home screen under Movies, TV shows, Music videos, Music, Add-ons, TV and Radio. Clicking Movies, TV shows or Music videos still opens the titles straight away. Works in the Estuary (Boxsets) skin copy only; run 'Update Estuary (Boxsets)' once after updating the add-on."
+msgstr ""
+
+msgctxt "#30028"
+msgid "Keep boxsets in Kodi's library menu"
+msgstr ""
+
+msgctxt "#30029"
+msgid "Adds a 'TV Boxsets' folder under Videos > Library for skins other than Estuary (Boxsets). Use Boxsets menu > 'Add boxsets to Kodi's library menu' to switch it on; this setting only shows whether it is on."
+msgstr ""

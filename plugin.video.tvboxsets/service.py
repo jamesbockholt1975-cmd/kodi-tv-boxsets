@@ -16,6 +16,7 @@ import xbmc
 import badges
 import store
 import tagsync
+import libnodes
 
 EVENTS = {"VideoLibrary.OnUpdate", "VideoLibrary.OnScanFinished", "VideoLibrary.OnRemove",
           "VideoLibrary.OnCleanFinished", "Player.OnStop"}
@@ -56,6 +57,7 @@ class Watcher(xbmc.Monitor):
             self.tag_debounce.event()
 
     def onSettingsChanged(self):
+        store.publish_flags()
         self.debounce.event()
         self.badge_debounce.event()
         self.tag_debounce.event()
@@ -71,9 +73,12 @@ def _mtime():
 def run():
     monitor = Watcher()
     store.bump_reload()  # rows start fresh after Kodi starts
+    store.publish_flags()
     badges.sync_badges()
     if store.setting_bool("auto_tags", True):
         tagsync.sync(quiet=True)
+    if store.setting_bool("library_nodes", False):
+        libnodes.write()
     last_mtime = _mtime()
     while not monitor.abortRequested():
         if monitor.waitForAbort(1):
@@ -93,6 +98,8 @@ def run():
             monitor.tag_debounce.fired()
             if store.setting_bool("auto_tags", True):  # re-read: the user may have switched it
                 tagsync.sync(quiet=True)
+            if store.setting_bool("library_nodes", False):
+                libnodes.write()
 
 
 if __name__ == "__main__":

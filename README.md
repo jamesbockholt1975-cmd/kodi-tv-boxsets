@@ -16,7 +16,7 @@ and widget for the default **Estuary** skin.
 
 - Create boxsets, add and remove shows, rename, delete.
 - Right-click any library TV show or movie: **Boxsets...** (see which boxsets it is in, tick to add or remove).
-- Right-click inside a boxset: **Move up / Move down**, **Place after another item** (put a movie right after its show), **Watch order** (a separate sequence of seasons, crossover episodes and movies, so one show can come back later), **Remove from this boxset**, **Play next
+- Right-click inside a boxset: **Move up / Move down**, **Play all unwatched (queue)**, **Place after another item** (put a movie right after its show), **Watch order** (a separate sequence of seasons, crossover episodes and movies, so one show can come back later), **Remove from this boxset**, **Play next
   unwatched episode**, **Add shows / movies**, and the **Boxsets menu** (create, backup, tags,
   skin setup, diagnostics). The lists themselves show only boxsets and shows.
 - Custom poster, fanart, banner, clear logo and landscape art per boxset; manual or A-Z order;
@@ -29,7 +29,11 @@ and widget for the default **Estuary** skin.
 - Mark a whole boxset watched/unwatched; write boxsets to Kodi tags for other skins to use.
 - Watched progress, **Play next unwatched episode**, greyed-out entries for shows that
   have left the library.
-- Create boxsets from Kodi tags.
+- Create boxsets from Kodi tags or movie sets.
+- Smart boxset rules: genre, tag, studio, years, title, unwatched only, recently added, rating at least.
+- Boxset poster collage built from the items inside (needs the optional Python Imaging Library add-on).
+- Boxsets in other skins: Boxsets menu > Add boxsets to Kodi's library menu (Kodi library nodes built from the tags).
+- Share a watch order as a small file: export it from the watch order view, import someone else's from the Boxsets menu.
 - Automatic daily backups, export, import (merge or replace) and restore.
 - Estuary integration: a **Boxsets** main menu item and a widget row (see below).
 - Support tools: a **diagnostics report** for bug reports, add-on **settings**, and a
@@ -66,6 +70,8 @@ plugin.video.tvboxsets/   the add-on
   library.py              library lookups, smart matches, ordering, membership (shared)
   badges.py               keeps the badge and name-label picture files in step with the boxsets
   labelimg.py             draws the name labels (standard library only)
+  libnodes.py             writes/removes the "TV Boxsets" Kodi library nodes (other skins)
+  collage.py              builds a poster collage from the items' posters (Pillow)
   tagsync.py              writes/removes the prefixed boxset tags in the Kodi library
   ctxutil.py, ctx_*.py    small right-click scripts used while browsing inside a boxset
   diagnostics.py          builds the diagnostics report text (no Kodi imports)
