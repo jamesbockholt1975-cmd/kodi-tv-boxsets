@@ -135,3 +135,11 @@ msgstr ""
 msgctxt "#30029"
 msgid "Adds a 'TV Boxsets' folder under Videos > Library for skins other than Estuary (Boxsets). Use Boxsets menu > 'Add boxsets to Kodi's library menu' to switch it on; this setting only shows whether it is on."
 msgstr ""
+
+msgctxt "#30030"
+msgid "Update the Boxsets skin automatically"
+msgstr ""
+
+msgctxt "#30031"
+msgid "When an update of this add-on needs changes in the 'Estuary (Boxsets)' skin copy, apply them when Kodi starts instead of waiting for you to run the update from the Boxsets menu. Only an existing copy is changed; nothing is ever switched or built without your say-so."
+msgstr ""

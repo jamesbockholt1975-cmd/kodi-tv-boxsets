@@ -32,6 +32,9 @@ and widget for the default **Estuary** skin.
 - Create boxsets from Kodi tags or movie sets.
 - Smart boxset rules: genre, tag, studio, years, title, unwatched only, recently added, rating at least.
 - Boxset poster collage built from the items inside (needs the optional Python Imaging Library add-on).
+- The Estuary (Boxsets) copy keeps itself up to date after add-on updates (setting, on by default).
+- Check my boxsets: finds missing, duplicate and empty entries and broken watch orders, and fixes the obvious ones.
+- Sort a boxset by release year.
 - Boxsets in other skins: Boxsets menu > Add boxsets to Kodi's library menu (Kodi library nodes built from the tags).
 - Share a watch order as a small file: export it from the watch order view, import someone else's from the Boxsets menu.
 - Automatic daily backups, export, import (merge or replace) and restore.
@@ -75,6 +78,8 @@ plugin.video.tvboxsets/   the add-on
   labelimg.py             draws the name labels (standard library only)
   libnodes.py             writes/removes the "TV Boxsets" Kodi library nodes (other skins)
   collage.py              builds a poster collage from the items' posters (Pillow)
+  skinupdate.py           patches an existing skin copy automatically when an add-on update needs it
+  healthcheck.py          the "Check my boxsets" scan and fixes
   tagsync.py              writes/removes the prefixed boxset tags in the Kodi library
   ctxutil.py, ctx_*.py    small right-click scripts used while browsing inside a boxset
   diagnostics.py          builds the diagnostics report text (no Kodi imports)

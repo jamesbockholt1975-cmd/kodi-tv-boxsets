@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.23.0 (alpha)
+- **Check my boxsets.** New Boxsets menu entry. It scans all boxsets and reports: saved entries that are not in
+  your library, the same library item listed twice, empty boxsets, smart boxsets that match nothing, watch order
+  entries for items that are no longer in the boxset, watch order seasons your library doesn't have, and (for
+  information) items that are in several boxsets. It offers to remove the missing entries, remove duplicates and
+  clean the watch orders. A copy of the boxsets is saved first (`pre-check-...` in the backups folder; the last
+  five are kept). Safeguards: nothing is offered when the library looks empty, or when over half the saved
+  entries are missing (a drive is probably offline or a scan is running).
+- **Sort a boxset by release year.** "Change show order" now offers A to Z, release year oldest first, release
+  year newest first, or manual. Shows and movies are mixed by year; items with no year go last.
+- Dropped the "x of y watched" poster label: Estuary already shows its own watched/total badge on boxset posters, and ours overlapped it. Skin patch version 10 removes it from existing copies automatically.
+- Tests: 610 checks.
+
+## 0.22.0 (alpha)
+- **The Estuary (Boxsets) copy updates itself.** Until now every add-on update that touched the skin patches
+  (new rows, labels, the hidden Categories row...) needed you to run Boxsets menu > "Update ... add the home
+  widget and library badges". The background service now checks when Kodi starts: if a Boxsets skin copy exists
+  and is out of date, it applies the same patch in place, shows a short notice and, if that skin is the one in
+  use, reloads it once. It only updates an existing copy; building a copy and switching skins stay your choice.
+  New setting **Update the Boxsets skin automatically** (on by default) turns it off, and the menu entry still
+  works. Because the new service does this on its first start, updating to this version needs no manual step.
+- Tests: 581 checks.
+
 ## 0.21.6 (alpha)
 - **WideList view: boxset names.** WideList has no big picture to put the label on, only rows, so the
   boxset-name label is now drawn in each row, to the right of the title and left of the year / rating

@@ -164,6 +164,22 @@ def _auto_backup():
         pass  # a failed backup must never stop a save
 
 
+def backup_before_change(prefix, keep=5):
+    """Copy the boxsets file to the backups folder as <prefix>-<date-time>.json before something bulk edits it."""
+    if not os.path.isfile(DATA_FILE):
+        return None
+    try:
+        xbmcvfs.mkdirs(BACKUP_DIR)
+        dest = os.path.join(BACKUP_DIR, "{}-{}.json".format(prefix, time.strftime("%Y%m%d-%H%M%S")))
+        shutil.copy2(DATA_FILE, dest)
+        old = sorted(f for f in os.listdir(BACKUP_DIR) if f.startswith(prefix + "-") and f.endswith(".json"))
+        for name in old[:-keep]:
+            os.remove(os.path.join(BACKUP_DIR, name))
+        return dest
+    except OSError:
+        return None
+
+
 def _stamp_modified(data):
     """Give each boxset that changed since the last save a fresh 'modified' time."""
     old = parse(_read_raw()) or {}

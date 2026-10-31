@@ -122,7 +122,7 @@ def smart_matches(bs, lib):
 def ordered_entries(bs, lib):
     """[(ref, library_item_or_None)] in display order: saved entries plus smart matches.
 
-    Order: A-Z by default. With a manual order, the saved `order` list decides (anything
+    Order: A-Z by default, or by release year if the boxset's `sort` says so. With a manual order, the saved `order` list decides (anything
     not in it goes last, A-Z). Older boxsets that were ordered before `order` existed keep
     working: their saved entries come first in saved order, then smart matches A-Z.
     """
@@ -143,7 +143,15 @@ def ordered_entries(bs, lib):
         return sorted(manual + smart, key=lambda e: (pos.get(show_key(e[0]), len(pos)), by_title(e)))
     if bs.get("manual_order"):
         return manual + sorted(smart, key=by_title)
-    return sorted(manual + smart, key=by_title)
+    entries = manual + smart
+    mode = bs.get("sort")
+    if mode in ("year", "year_desc"):  # release year; items with no year go last
+        def year_of(e):
+            return int((e[1] or {}).get("year") or e[0].get("year") or 0)
+        sign = -1 if mode == "year_desc" else 1
+        dated = sorted([e for e in entries if year_of(e)], key=lambda e: (sign * year_of(e), by_title(e)))
+        return dated + sorted([e for e in entries if not year_of(e)], key=by_title)
+    return sorted(entries, key=by_title)
 
 
 def item_stats(ref, item):

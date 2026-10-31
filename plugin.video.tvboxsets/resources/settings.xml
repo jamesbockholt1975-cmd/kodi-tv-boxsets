@@ -56,6 +56,11 @@
 					<default>true</default>
 					<control type="toggle"/>
 				</setting>
+				<setting id="auto_skin_update" type="boolean" label="30030" help="30031">
+					<level>0</level>
+					<default>true</default>
+					<control type="toggle"/>
+				</setting>
 				<setting id="library_nodes" type="boolean" label="30028" help="30029">
 					<level>0</level>
 					<default>false</default>

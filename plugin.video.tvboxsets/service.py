@@ -17,6 +17,7 @@ import badges
 import store
 import tagsync
 import libnodes
+import skinupdate
 
 EVENTS = {"VideoLibrary.OnUpdate", "VideoLibrary.OnScanFinished", "VideoLibrary.OnRemove",
           "VideoLibrary.OnCleanFinished", "Player.OnStop"}
@@ -74,6 +75,8 @@ def run():
     monitor = Watcher()
     store.bump_reload()  # rows start fresh after Kodi starts
     store.publish_flags()
+    if skinupdate.run():  # an add-on update changed what the skin copy needs: patch it once, automatically
+        store.bump_reload()
     badges.sync_badges()
     if store.setting_bool("auto_tags", True):
         tagsync.sync(quiet=True)

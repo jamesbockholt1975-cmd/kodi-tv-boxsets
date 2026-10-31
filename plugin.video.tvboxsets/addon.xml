@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.21.6" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.23.0" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.pil" optional="true"/>
@@ -87,7 +87,14 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.21.6 (alpha)
+    <news>v0.23.0 (alpha)
+- New: Boxsets menu > "Check my boxsets (find and fix problems)...": lists entries that are not in your library, duplicates, empty boxsets, smart rules that match nothing, and watch order entries or seasons that no longer fit, and offers to fix the obvious ones (a copy is saved first)
+- New: Change show order can now sort a boxset by release year, oldest or newest first
+
+v0.22.0 (alpha)
+- New: the Boxsets skin copy now updates itself. When an add-on update needs changes in "Estuary (Boxsets)", they are applied when Kodi starts (with a short notice, and one skin reload if you are using it), so you no longer have to run "Update ... add the home widget and library badges" yourself. New setting "Update the Boxsets skin automatically" (on by default). It only changes an existing copy; it never builds a copy or switches skins by itself
+
+v0.21.6 (alpha)
 - Fix: the WideList view now shows the boxset-name label in each row too (to the right of the title). Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
 
 v0.21.5 (alpha)

@@ -280,7 +280,7 @@ def patch_categories(path):
 BADGE_FILE = "Includes_TvBoxsets.xml"
 # Bump this whenever the include or where it is placed changes: it is how the Boxsets menu knows a skin copy
 # needs "Update ... add the home widget and library badges".
-BADGE_MARKER = "tvboxsets-badge v8"
+BADGE_MARKER = "tvboxsets-badge v10"
 BADGE_REV_PROPERTY = "tvboxsets_badge_rev"  # the add-on sets this to the current picture folder number
 BADGE_DIR_SPECIAL = ("special://profile/addon_data/plugin.video.tvboxsets/badges/"
                      "r$INFO[Window(Home).Property(" + BADGE_REV_PROPERTY + ")]")
@@ -291,6 +291,10 @@ BADGE_VIEW_FILES = ("View_50_List.xml", "View_51_Poster.xml", "View_53_Shift.xml
 # Row layouts (small watched icon, then the title): the badge goes in the gap between them.
 ROW_VIEW_FILES = ("View_55_WideList.xml", "View_504_MediaList.xml")
 ROW_BADGE_SIZE = 28
+# Views where the "x of y watched" label has room (not the banners, which draw their own title strip there)
+# Estuary already draws its own watched/total badge on poster tiles, so our "x of y watched" pill is no longer placed
+# (the include stays defined so older copies are cleaned up on re-patch).
+PROGRESS_FILES = ()
 ROW_NAME_FILES = ("View_55_WideList.xml",)   # rows wide enough for the boxset-name label as well
 ROW_NAME_WIDTH, ROW_NAME_HEIGHT, ROW_NAME_RESERVE = 360, 28, 230   # label size; room kept for the right-hand text
 ROW_HEIGHT = 75                                                      # Estuary's list_item_height (1080p)
@@ -384,6 +388,31 @@ BADGE_INCLUDE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 \t\t\t</control>
 \t\t</definition>
 \t</include>
+\t<include name="TvBoxsetsProgress">
+\t\t<param name="left">10</param>
+\t\t<param name="top">10</param>
+\t\t<definition>
+\t\t\t<control type="group">
+\t\t\t\t<left>$PARAM[left]</left>
+\t\t\t\t<top>$PARAM[top]</top>
+\t\t\t\t<visible>!String.IsEmpty(ListItem.Property(boxset_progress))</visible>
+\t\t\t\t<control type="image">
+\t\t\t\t\t<width>190</width>
+\t\t\t\t\t<height>28</height>
+\t\t\t\t\t<texture colordiffuse="EB0D1B2D" border="6">colors/white.png</texture>
+\t\t\t\t</control>
+\t\t\t\t<control type="label">
+\t\t\t\t\t<left>10</left>
+\t\t\t\t\t<right>10</right>
+\t\t\t\t\t<height>28</height>
+\t\t\t\t\t<aligny>center</aligny>
+\t\t\t\t\t<font>font12</font>
+\t\t\t\t\t<textcolor>FFF0F4F8</textcolor>
+\t\t\t\t\t<label>$INFO[ListItem.Property(boxset_progress)]</label>
+\t\t\t\t</control>
+\t\t\t</control>
+\t\t</definition>
+\t</include>
 \t<include name="TvBoxsetsNameBadge">
 \t\t<param name="left">10</param>
 \t\t<param name="top">10</param>
@@ -455,7 +484,7 @@ def patch_badges(xml_dir):
         text = _strip_placements(original)
         nl = "\r\n" if "\r\n" in text else "\n"
         if name in BADGE_VIEW_FILES:
-            text, count = _place_posters(text, nl)
+            text, count = _place_posters(text, nl, progress=name in PROGRESS_FILES)
         else:
             text, count = _place_rows(text, nl, names=name in ROW_NAME_FILES)
         if text != original:  # rewriting an already-patched file gives the same text: nothing changes
@@ -464,7 +493,7 @@ def patch_badges(xml_dir):
     return placed
 
 
-_OUR_INCLUDE = re.compile(r'\r?\n[ \t]*<include content="TvBoxsets(?:(?:Name|Row)?Badge|MovieTag|TileName)">.*?</include>', re.S)
+_OUR_INCLUDE = re.compile(r'\r?\n[ \t]*<include content="TvBoxsets(?:(?:Name|Row)?Badge|MovieTag|TileName|Progress)">.*?</include>', re.S)
 
 
 def _strip_placements(text):
@@ -479,7 +508,7 @@ def _snippet(indent, nl, include, **params):
     return nl.join(lines)
 
 
-def _place_posters(text, nl):
+def _place_posters(text, nl, progress=True):
     """A name pill in the top-left corner of every poster image (numeric position only)."""
     out, last, count = [], 0, 0
     for m in _IMAGE_CONTROL.finditer(text):
@@ -488,6 +517,7 @@ def _place_posters(text, nl):
             continue
         left, top, width = (_number(_tag(m.group(1), t)) for t in ("left", "top", "width"))
         right = _number(_tag(m.group(1), "right"))
+        pic_height = _number(_tag(m.group(1), "height"))
         if width is None and left is not None and right is not None:
             # Anchored on both sides (Fanart view): the width is the enclosing group's width minus both gaps
             outer = re.findall(r"<width>(\d+)</width>", text[max(0, m.start() - 1500):m.start()])
@@ -504,6 +534,9 @@ def _place_posters(text, nl):
         # the boxset's own name on its tile (the plugin sets boxset_tile on the boxset list and the Next up row)
         out[-1] += nl + _snippet(indent, nl, "TvBoxsetsTileName", left=left + 10, top=top + 10,
                                  width=max(60, width - 20), height=height)
+        # "7 of 12 watched" along the bottom-left of a boxset's poster (only boxset tiles carry boxset_progress)
+        if progress and pic_height and pic_height >= 250:
+            out[-1] += nl + _snippet(indent, nl, "TvBoxsetsProgress", left=left + 10, top=top + pic_height - 48)
         # a MOVIE tag in the top-right corner (the plugin sets the property only on movies in a boxset)
         out[-1] += nl + _snippet(indent, nl, "TvBoxsetsMovieTag", left=max(left, left + width - 94), top=top + 10)
         last = m.end()

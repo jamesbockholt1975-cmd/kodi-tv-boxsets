@@ -115,12 +115,12 @@ ok(items[0][0].props["UnWatchedEpisodes"] == "6", "show unwatched count")
 ok(items[0][1].startswith("videodb://tvshows/titles/1/"), "links into the native library node")
 
 print("== manual order")
-runq("action=reorder&bid=b1", select=[1, 2, -1], numeric=["1"])
+runq("action=reorder&bid=b1", select=[3, 2, -1], numeric=["1"])
 ok(store.load()["b1"]["manual_order"] is True, "manual order saved")
 ok(run("action=open&bid=b1")[0][0].label == "Gamma", "Gamma moved to the top")
 runq("action=reorder&bid=b1", select=[0])
 ok(store.load()["b1"]["manual_order"] is False, "back to A-Z")
-runq("action=reorder&bid=b1", select=[1, 0, -1], numeric=["1"])
+runq("action=reorder&bid=b1", select=[3, 0, -1], numeric=["1"])
 
 print("== custom artwork")
 runq("action=art&bid=b1&kind=poster", select=[0], browseSingle=["C:/art/saga.jpg"])
@@ -622,7 +622,7 @@ store.save({"sm": dict(box("Smart", [B]), rules={"media": "tv", "genre": "Drama"
 ok(titles("sm") == ["Alpha", "Beta", "Gamma"], "smart boxset starts A-Z")
 ok(mv("sm", "Gamma", 2020, -1) != [] and titles("sm") == ["Alpha", "Gamma", "Beta"], "smart boxsets can be ordered too")
 ok([r["title"] for r in store.load()["sm"]["shows"]] == ["Beta"], "smart matches were not turned into saved entries")
-runq("action=reorder&bid=sm", select=[1, 1, -1], numeric=["1"])  # starts from the order shown: Alpha, Gamma, Beta
+runq("action=reorder&bid=sm", select=[3, 1, -1], numeric=["1"])  # starts from the order shown: Alpha, Gamma, Beta
 ok(titles("sm")[0] == "Gamma" and [r["title"] for r in store.load()["sm"]["shows"]] == ["Beta"], "the 'Change show order' dialog also works on smart boxsets")
 runq("action=reorder&bid=sm", select=[0])
 ok("order" not in store.load()["sm"] and titles("sm") == ["Alpha", "Beta", "Gamma"], "choosing A-Z again clears the manual order")
@@ -1062,6 +1062,112 @@ ok("action=watch_export" in run_script("ctx_watch_export.py"), "export context s
 ok(vis.get("ctx_watch_export.py") and "action=watch" in vis["ctx_watch_export.py"], "the export entry is shown in the watch order view")
 xbmc.LIB[:] = saved_lib; xbmc.MOVIES[:] = saved_movies; store.save(saved_store)
 
+print("== the skin copy updates itself when the add-on needs it to")
+import skinupdate  # noqa: E402
+sk_xml = os.path.join(ROOT, "home/addons/skin.estuary.boxsets/xml")
+ok(os.path.isdir(sk_xml), "(a Boxsets skin copy exists from the earlier tests)")
+inc_path = os.path.join(sk_xml, "Includes_TvBoxsets.xml")
+if os.path.exists(inc_path):
+    inc_now = open(inc_path, encoding="utf-8").read()
+    skinpatch.patch_badges(sk_xml)
+    ok(skinupdate.current() and skinupdate.run() is False, "an up-to-date copy is left alone")
+    old = open(inc_path, encoding="utf-8").read().replace(skinpatch.BADGE_MARKER, "tvboxsets-badge v6")
+    open(inc_path, "w", encoding="utf-8").write(old)
+    ok(not skinupdate.current(), "a copy from an older add-on version is out of date")
+    xbmcaddon.SETTINGS["auto_skin_update"] = False
+    ok(skinupdate.run() is False and not skinupdate.current(), "with the setting off nothing is changed")
+    xbmcaddon.SETTINGS["auto_skin_update"] = True
+    xbmc.SKIN = "skin.estuary"; xbmc.BUILTINS.clear()
+    ok(skinupdate.run() is True and skinupdate.current(), "with the setting on, the service patches the copy by itself")
+    ok(not any("ReloadSkin" in b for b in xbmc.BUILTINS), "...and does not reload the screen when you are in a different skin")
+    open(inc_path, "w", encoding="utf-8").write(old)
+    xbmc.SKIN = "skin.estuary.boxsets"; xbmc.BUILTINS.clear()
+    ok(skinupdate.run() is True and any("ReloadSkin" in b for b in xbmc.BUILTINS), "if the Boxsets skin is the one in use it is reloaded once")
+    xbmc.SKIN = "skin.estuary"
+    ok(skinupdate.run() is False, "and then there is nothing more to do")
+    svc_old = open(inc_path, encoding="utf-8").read().replace(skinpatch.BADGE_MARKER, "tvboxsets-badge v6")
+    open(inc_path, "w", encoding="utf-8").write(svc_old)
+    service.run()
+    ok(skinupdate.current(), "the service does it when Kodi starts")
+import shutil as _sh
+_sh.rmtree(os.path.join(ROOT, "home/addons/skin.estuary.boxsets_absent"), ignore_errors=True)
+
+print("== sorting a boxset by release year")
+F1_ = {"title": "Film One", "year": 2012, "type": "movie"}
+store.save({"yr": box("Years", [G, F1_, {"title": "Zeta", "year": 1999}, A, B])})
+def order_of(bid):
+    return [r["title"] for r, _ in library.ordered_entries(store.load()[bid], library.Library())]
+ok(order_of("yr") == ["Alpha", "Beta", "Film One", "Gamma", "Zeta"], "A to Z is still the default")
+runq("action=reorder&bid=yr", select=[1])
+ok(order_of("yr") == ["Zeta", "Alpha", "Film One", "Beta", "Gamma"], "oldest first: shows and movies mixed by release year (a missing item uses its saved year)")
+runq("action=reorder&bid=yr", select=[2])
+ok(order_of("yr") == ["Gamma", "Beta", "Film One", "Alpha", "Zeta"], "newest first")
+store.save({"yr": dict(store.load()["yr"], shows=store.load()["yr"]["shows"] + [{"title": "Nodate", "year": 0}])})
+ok(order_of("yr")[-1] == "Nodate", "items with no year always go last")
+runq("action=reorder&bid=yr", select=[0])
+ok("sort" not in store.load()["yr"] and order_of("yr")[0] == "Alpha", "A to Z puts it back")
+runq("action=reorder&bid=yr", select=[1]); runq("action=reorder&bid=yr", select=[3, 0, -1], numeric=["1"])
+ok(store.load()["yr"]["manual_order"] is True, "Arrange manually still works after a year sort")
+
+print("== progress label on boxset tiles")
+store.save({"pg": box("Progress", [A, G]), "pc": box("Done", [B])})
+tiles = {t[0].label: t[0] for t in run("")}
+ok(tiles["Progress"].props.get("boxset_progress") == "4 of 15 watched", "a boxset tile carries 'x of y watched'")
+ok(tiles["Done"].props.get("boxset_progress") == "[COLOR lightgreen]Complete[/COLOR]", "...and 'Complete' when everything is watched")
+store.save({"em": box("Nothing", [])})
+ok("boxset_progress" not in [t[0] for t in run("")][0].props, "an empty boxset has no progress label")
+pdir = os.path.join(ROOT, "progress-skin")
+shutil.copytree(os.path.join(HERE, "fixtures", "xml"), pdir)
+skinpatch.patch_badges(pdir)
+xdir = pdir
+pv2 = open(os.path.join(xdir, "View_54_InfoWall.xml"), encoding="utf-8").read()
+ok(pv2.count('content="TvBoxsetsProgress"') == 0, "the skin no longer draws our own progress pill (Kodi's own badge already shows it)")
+ok(open(os.path.join(xdir, "View_501_Banner.xml"), encoding="utf-8").read().count('TvBoxsetsProgress"') == 0, "...but not on banners, which have their own title strip")
+
+print("== check my boxsets")
+import healthcheck  # noqa: E402
+Z_ = {"title": "Zeta", "year": 1999}
+store.save({"hc1": dict(box("Checked", [A, Z_, B, {"title": "Alpha", "year": 2011}]),
+                        watch=[{"title": "Alpha", "year": 2010, "season": 1}, {"title": "Zeta", "year": 1999, "season": 1},
+                               {"title": "Alpha", "year": 2010, "season": 9}]),
+            "hc2": box("Empty one", []), "hc3": dict(box("Smart nothing", []), rules={"media": "tv", "genre": "NoSuchGenre"}),
+            "hc4": box("Other", [A])})
+hdata = store.load(); hlib = library.Library()
+rep = healthcheck.scan(hdata, hlib)
+ok([m[1] for m in rep["missing"]] == ["Zeta (1999)"], "reports entries that are not in the library")
+ok(len(rep["duplicates"]) == 1 and "Alpha" in rep["duplicates"][0][1], "reports the same library item listed twice (fuzzy year)")
+ok(rep["empty"] == ["Empty one"] and rep["smart_empty"] == ["Smart nothing"], "reports empty boxsets and smart rules that match nothing")
+ok(rep["watch_no_season"] and "Season 9" in rep["watch_no_season"][0][1], "reports watch order seasons the library doesn't have")
+ok(any(label.startswith("Alpha") and set(names) == {"Checked", "Other"} for label, names in rep["shared"]), "lists items that are in several boxsets (information only)")
+txt = healthcheck.text(rep)
+ok("Not in your library right now (1)" in txt and "Checked: Zeta (1999)" in txt and "In more than one boxset" in txt, "the text report names them")
+ok(healthcheck.problems(rep) >= 5 and "No problems found" in healthcheck.text(healthcheck.scan({"x": box("Fine", [A])}, hlib)), "a clean set says so")
+before_files = set(os.listdir(store.BACKUP_DIR))
+D.Q.clear(); D.Q.update({"select": [1, -1], "yesno": [True]}); main.check_boxsets()
+after = store.load()
+ok([r["title"] for r in after["hc1"]["shows"]] == ["Alpha", "Beta", "Alpha"], "fix 1 removes the entries that aren't in the library")
+ok(any(f.startswith("pre-check-") for f in set(os.listdir(store.BACKUP_DIR)) - before_files), "a pre-check copy of the boxsets is saved first")
+ok([e["title"] for e in after["hc1"]["watch"]] == ["Alpha", "Alpha"], "...and the watch order entry for the removed item goes with it")
+D.Q.clear(); D.Q.update({"select": [1, -1], "yesno": [True]}); main.check_boxsets()
+ok([r["title"] for r in store.load()["hc1"]["shows"]] == ["Alpha", "Beta"], "fix 2 removes the duplicate")
+snapshot = store.load()
+D.Q.clear(); D.Q.update({"select": [1, -1], "yesno": [False]}); main.check_boxsets()
+ok(store.load() == snapshot, "saying no changes nothing")
+ok(healthcheck.remove_missing({"q": box("Q", [Z_])}, hlib) == 1, "remove_missing on its own")
+class EmptyLib:
+    shows, movies = [], []
+ok(not healthcheck.library_ready(EmptyLib()), "an empty library (drive offline?) is never treated as 'everything is missing'")
+xbmc.LIB_SAVED = list(xbmc.LIB); xbmc.LIB[:] = []; xbmc.MOVIES_SAVED = list(xbmc.MOVIES); xbmc.MOVIES[:] = []
+store.save(snapshot); snapshot2 = store.load(); D.LOG.clear()
+D.Q.clear(); D.Q.update({"select": [0, -1]}); main.check_boxsets()
+ok(store.load() == snapshot2 and any(k == "textviewer" and "looks empty" in str(v) for k, v in D.LOG), "with an empty library no fix is offered and the report says why")
+xbmc.LIB[:] = xbmc.LIB_SAVED[:1]; xbmc.MOVIES[:] = xbmc.MOVIES_SAVED; D.LOG.clear()
+store.save({"o1": box("Offline", [A, B, G, Z_, {"title": "Eta", "year": 2001}])}); snapshot3 = store.load()
+D.Q.clear(); D.Q.update({"select": [0, -1]}); main.check_boxsets()
+ok(store.load() == snapshot3 and any(k == "textviewer" and "drive is offline" in str(v) for k, v in D.LOG), "over half missing (a drive offline?): removing is not offered")
+xbmc.LIB[:] = xbmc.LIB_SAVED
+ok("Check my boxsets (find and fix problems)..." in [l for l, _ in main.menu_entries()], "the Boxsets menu offers it")
+
 print("== diagnostics: operating system label")
 xbmc.INFO["System.OSVersionInfo"] = "Busy"
 ok(main.os_description() not in ("", "Busy"), "'Busy' from Kodi is replaced by Python's description")
@@ -1370,7 +1476,7 @@ inc = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read(
 ok('name="TvBoxsetsTileName"' in inc and "ListItem.Property(boxset_tile)" in inc, "the include shows the boxset_tile property")
 ET.fromstring(inc.encode("utf-8"))
 ok(rb.find(".//centertop").text == "50%" and "DBID" in rb.find(".//texture").text, "row badge is vertically centred and uses the same per-item picture")
-text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v8", "tvboxsets-badge v1")
+text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v10", "tvboxsets-badge v1")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(text)
 ok(not skinpatch.has_badges(xdir), "a skin copy made with badge version 1 is not counted as current")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(text.replace("tvboxsets-badge v1", "tvboxsets-badge v6"))
@@ -1511,7 +1617,7 @@ text = open(os.path.join(xdir, "View_51_Poster.xml"), encoding="utf-8", newline=
 text = text.replace("TvBoxsetsNameBadge", "TvBoxsetsBadge")
 with open(os.path.join(xdir, "View_51_Poster.xml"), "w", encoding="utf-8", newline="") as f:
     f.write(text)
-inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v8", "tvboxsets-badge v2")
+inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v10", "tvboxsets-badge v2")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(inc_text)
 ok(not skinpatch.has_badges(xdir), "a skin copy from the previous version (round badges on posters) counts as out of date")
 skinpatch.patch_badges(xdir)

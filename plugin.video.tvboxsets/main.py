@@ -21,6 +21,7 @@ import skinpatch
 import store
 import tagsync
 import collage
+import healthcheck
 import libnodes
 import watchorder
 import wopack
@@ -157,6 +158,8 @@ def list_boxsets(widget=False, flt=None):
 
         li = xbmcgui.ListItem(label=bs["name"])
         li.setProperty("boxset_tile", bs["name"])  # the skin draws the boxset's name on the poster
+        if row["total"]:
+            li.setProperty("boxset_progress", progress_text(row["total"], row["watched"]))
         li.setArt(boxset_art(bs, [i for _, i in found]))
         tag = li.getVideoInfoTag()
         tag.setMediaType("tvshow")
@@ -198,6 +201,13 @@ def list_boxsets(widget=False, flt=None):
 
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.endOfDirectory(HANDLE)
+
+
+def progress_text(total, watched):
+    """'7 of 12 watched' (the skin draws it on the boxset's poster), or 'Complete' in green."""
+    if watched >= total:
+        return "[COLOR lightgreen]Complete[/COLOR]"
+    return "{} of {} watched".format(watched, total)
 
 
 def next_up_row(rows, lib):
@@ -384,6 +394,53 @@ def refresh_badges():
         notify("Badges are already up to date ({} item(s))".format(result[2]))
 
 
+def check_boxsets():
+    """Boxsets menu > Check my boxsets: show what is wrong and offer to fix the obvious things."""
+    dialog = xbmcgui.Dialog()
+    while True:
+        data = load()
+        if not data:
+            notify("You have no boxsets yet")
+            return
+        lib = Library()
+        report = healthcheck.scan(data, lib)
+        fixes = []
+        if healthcheck.library_ready(lib):
+            if report["missing"] and not healthcheck.mostly_missing(report, data):
+                fixes.append(("Remove {} entr{} that aren't in your library".format(
+                    len(report["missing"]), "y" if len(report["missing"]) == 1 else "ies"), healthcheck.remove_missing))
+            if report["duplicates"]:
+                fixes.append(("Remove {} duplicate entr{}".format(
+                    len(report["duplicates"]), "y" if len(report["duplicates"]) == 1 else "ies"), healthcheck.remove_duplicates))
+            if report["watch_hidden"] or report["missing"]:
+                fixes.append(("Clean the watch orders (drop entries for items no longer in the boxset)", healthcheck.clean_watch))
+        body = healthcheck.text(report)
+        if healthcheck.library_ready(lib) and healthcheck.mostly_missing(report, data):
+            body += ("\n\nOver half of your entries are missing from the library. That usually means a drive is "
+                     "offline or the library is being rescanned, so removing them is not offered. Fix the library "
+                     "(or wait for the scan) and check again.")
+        if not healthcheck.library_ready(lib):
+            body += "\n\nYour library looks empty right now (is a drive offline?), so nothing can be fixed safely."
+        pick = dialog.select("Check my boxsets: {} problem(s)".format(healthcheck.problems(report)),
+                             ["Show the full report"] + [label for label, _ in fixes] + ["Close"])
+        if pick <= -1 or pick == len(fixes) + 1:
+            return
+        if pick == 0:
+            dialog.textviewer("Check my boxsets", body)
+            continue
+        label, fix = fixes[pick - 1]
+        if not dialog.yesno("Check my boxsets", "{}?\n\nA copy of your boxsets is saved first (in the add-on's "
+                            "backups folder, named pre-check-...), so this can be undone with "
+                            "Boxsets menu > Import a backup file.".format(label)):
+            continue
+        store.backup_before_change("pre-check")
+        changed = fix(data, lib)
+        if fix is healthcheck.remove_missing:
+            changed += healthcheck.clean_watch(data, lib)
+        save(data)
+        notify("Fixed {} thing(s)".format(changed))
+
+
 def refresh_rows():
     store.bump_reload()
     notify("Home screen rows refreshed")
@@ -407,6 +464,7 @@ def menu_entries():
         if not skin_outdated():
             entries.append(("Rebuild the Boxsets skin from the current Estuary", rebuild_skin))
     entries += [
+        ("Check my boxsets (find and fix problems)...", check_boxsets),
         ("Export a backup...", export_backup),
         ("Import a backup file...", import_backup),
         ("Restore an automatic backup...", restore_auto),
@@ -706,12 +764,17 @@ def reorder_shows(bid):
         notify("Add some shows first")
         return
     mode = xbmcgui.Dialog().select("Order of '{}'".format(bs["name"]), [
-        "Sort A to Z (automatic)", "Arrange manually"])
+        "Sort A to Z (automatic)", "Sort by release year, oldest first (automatic)",
+        "Sort by release year, newest first (automatic)", "Arrange manually"])
     if mode < 0:
         return
-    if mode == 0:
+    if mode < 3:
         bs["manual_order"] = False
         bs.pop("order", None)
+        if mode == 0:
+            bs.pop("sort", None)
+        else:
+            bs["sort"] = "year" if mode == 1 else "year_desc"
         save(data)
         return
 
