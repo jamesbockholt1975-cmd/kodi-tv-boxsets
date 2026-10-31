@@ -21,7 +21,7 @@ TV_DETAIL = ["title", "originaltitle", "sorttitle", "year", "premiered", "plot",
 MOVIE_DETAIL = ["title", "originaltitle", "sorttitle", "year", "premiered", "plot", "plotoutline", "tagline",
                 "genre", "studio", "mpaa", "cast", "director", "writer", "country", "rating", "ratings", "votes",
                 "userrating", "runtime", "imdbnumber", "uniqueid", "trailer", "set", "playcount", "dateadded",
-                "lastplayed", "tag", "art", "top250"]
+                "lastplayed", "tag", "art", "top250", "streamdetails"]
 # Enough to match titles and evaluate smart rules, without artwork and plots (used for badges).
 LIGHT_PROPS = ["title", "year", "genre", "studio", "tag", "rating", "dateadded"]
 LIGHT_TV = LIGHT_PROPS + ["episode", "watchedepisodes"]  # what smart rules (unwatched) need

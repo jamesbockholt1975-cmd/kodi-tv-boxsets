@@ -278,18 +278,24 @@ def patch_categories(path):
 # --------------------------------------------------------------------------
 
 BADGE_FILE = "Includes_TvBoxsets.xml"
-BADGE_MARKER = "tvboxsets-badge v6"
+# Bump this whenever the include or where it is placed changes: it is how the Boxsets menu knows a skin copy
+# needs "Update ... add the home widget and library badges".
+BADGE_MARKER = "tvboxsets-badge v8"
 BADGE_REV_PROPERTY = "tvboxsets_badge_rev"  # the add-on sets this to the current picture folder number
 BADGE_DIR_SPECIAL = ("special://profile/addon_data/plugin.video.tvboxsets/badges/"
                      "r$INFO[Window(Home).Property(" + BADGE_REV_PROPERTY + ")]")
 
 # Views whose poster artwork gets a badge (found in Estuary's own files).
 BADGE_VIEW_FILES = ("View_50_List.xml", "View_51_Poster.xml", "View_53_Shift.xml",
-                    "View_54_InfoWall.xml", "DialogVideoInfo.xml")
+                    "View_54_InfoWall.xml", "View_501_Banner.xml", "View_502_FanArt.xml", "DialogVideoInfo.xml")
 # Row layouts (small watched icon, then the title): the badge goes in the gap between them.
 ROW_VIEW_FILES = ("View_55_WideList.xml", "View_504_MediaList.xml")
 ROW_BADGE_SIZE = 28
-_POSTER_TEXTURE = re.compile(r"Art\(poster\)|PosterThumbVar|ShiftThumbVar")
+ROW_NAME_FILES = ("View_55_WideList.xml",)   # rows wide enough for the boxset-name label as well
+ROW_NAME_WIDTH, ROW_NAME_HEIGHT, ROW_NAME_RESERVE = 360, 28, 230   # label size; room kept for the right-hand text
+ROW_HEIGHT = 75                                                      # Estuary's list_item_height (1080p)
+SCREEN_WIDTH = 1920
+_POSTER_TEXTURE = re.compile(r"Art\(poster\)|PosterThumbVar|ShiftThumbVar|InfoWallThumbVar|BannerArtVar|FanartImageVar")
 _IMAGE_CONTROL = re.compile(r'<control type="image"[^>]*>(.*?)</control>', re.S)
 
 BADGE_INCLUDE_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -451,7 +457,7 @@ def patch_badges(xml_dir):
         if name in BADGE_VIEW_FILES:
             text, count = _place_posters(text, nl)
         else:
-            text, count = _place_rows(text, nl)
+            text, count = _place_rows(text, nl, names=name in ROW_NAME_FILES)
         if text != original:  # rewriting an already-patched file gives the same text: nothing changes
             _write(path, text)
             placed += count
@@ -481,6 +487,12 @@ def _place_posters(text, nl):
         if not tex or not _POSTER_TEXTURE.search(tex.group(1)):
             continue
         left, top, width = (_number(_tag(m.group(1), t)) for t in ("left", "top", "width"))
+        right = _number(_tag(m.group(1), "right"))
+        if width is None and left is not None and right is not None:
+            # Anchored on both sides (Fanart view): the width is the enclosing group's width minus both gaps
+            outer = re.findall(r"<width>(\d+)</width>", text[max(0, m.start() - 1500):m.start()])
+            if outer and int(outer[-1]) - left - right > 100:
+                width = int(outer[-1]) - left - right
         if left is None or top is None or width is None:
             continue
         line_start = text.rfind("\n", 0, m.start()) + 1
@@ -499,7 +511,7 @@ def _place_posters(text, nl):
     return ("".join(out) + text[last:]) if out else text, count
 
 
-def _place_rows(text, nl):
+def _place_rows(text, nl, names=False):
     """A small round badge to the right of the watched icon, if there is room before the title."""
     out, last, count = [], 0, 0
     for m in _IMAGE_CONTROL.finditer(text):
@@ -522,6 +534,18 @@ def _place_rows(text, nl):
             snippet = _snippet(indent, nl, "TvBoxsetsRowBadge", left=start, size=ROW_BADGE_SIZE)
         else:
             snippet = _snippet(indent, nl, "TvBoxsetsBadge", left=start, top=top + 2, size=ROW_BADGE_SIZE)
+        if names:
+            # the boxset names, right-aligned to the left of the right-hand text (year, rating...)
+            box = re.search(r'<control type="fixedlist"[^>]*>(.*?)</control>|<control type="list"[^>]*>(.*?)<', text, re.S)
+            lst_left = _number(_tag(text[box.start():box.start() + 600], "left")) if box else None
+            lst_right = _number(_tag(text[box.start():box.start() + 600], "right")) if box else None
+            if lst_left is not None and lst_right is not None:
+                row_width = SCREEN_WIDTH - lst_left - lst_right
+                pill_left = row_width - ROW_NAME_RESERVE - ROW_NAME_WIDTH
+                if pill_left > (label_left or 0) + 200:
+                    snippet += nl + _snippet(indent, nl, "TvBoxsetsNameBadge", left=pill_left,
+                                             top=(ROW_HEIGHT - ROW_NAME_HEIGHT) // 2,
+                                             width=ROW_NAME_WIDTH, height=ROW_NAME_HEIGHT)
         out.append(text[last:m.end()] + nl + snippet)
         last = m.end()
         count += 1

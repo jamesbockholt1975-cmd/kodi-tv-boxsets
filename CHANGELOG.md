@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.21.6 (alpha)
+- **WideList view: boxset names.** WideList has no big picture to put the label on, only rows, so the
+  boxset-name label is now drawn in each row, to the right of the title and left of the year / rating
+  (its position is worked out from the width of Estuary's list). Very long titles can run under it. Needs the
+  skin update once (patch version 8; the Boxsets menu offers it).
+- Tests: 571 checks.
+
+## 0.21.5 (alpha)
+- **Fix: no skin update was offered after 0.21.3/0.21.4.** 0.21.3 added the labels to the Banner, List and
+  Fanart views but did not change the skin patch's version number, so an existing Estuary (Boxsets) copy still
+  counted as up to date and the Boxsets menu did not show "Update ... add the home widget and library badges".
+  The patch version is now 7, so every copy made by 0.21.2 or earlier is offered the update. Run it once
+  (Banner labels and the MOVIE tag in Banner view, and the List / Fanart labels, depend on it).
+- Tests: 569 checks.
+
+## 0.21.4 (alpha)
+- **Fix: media info missing for movies inside a boxset.** Movies in a boxset and in its watch order now carry
+  their stream details from the Kodi library: video (resolution, codec, aspect, HDR type, duration), audio
+  (codec, channels, language) and subtitle languages. The information page and skin media flags can then show
+  them as they do for the same movie in the normal library. TV shows in a boxset are unchanged (Kodi keeps
+  media info per episode, not per show).
+- Tests: 568 checks.
+
+## 0.21.3 (alpha)
+- **Fix: labels missing in the Banner, List and Fanart views.** The boxset-name labels and the MOVIE tag were
+  only drawn over poster pictures. They are now also drawn on the banners in the **Banner** view (normal and
+  focused), and the boxset-name labels on the big picture in the **List** and **Fanart** views. Needs the skin
+  update once (the patch now covers 21 places in Estuary 4.1.0, up from 14). Checked against a real copy of
+  Estuary's view files; all files stay valid XML and patching twice changes nothing.
+- Not changed: the small round badge in **WideList** (and MediaList) rows stays, and a boxset name written as
+  text after the title in a row is not possible there without moving Estuary's own row layout.
+- Tests: 564 checks.
+
 ## 0.21.2 (alpha)
 - **Fix: "Operating system: Busy" in the diagnostics report.** Kodi fills that label in lazily; the report now
   falls back to Python's own description when Kodi says Busy.

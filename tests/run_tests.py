@@ -911,6 +911,21 @@ ok(td.get("Cast") and td["Cast"][0].name == "A. Actor" and td["Cast"][0].role ==
 ok(td.get("Rating") is not None and RPC_PROPS and "cast" in RPC_PROPS[0] and "ratings" in RPC_PROPS[0], "ratings are carried, and the full record is asked for one show at a time")
 ok(fi[1][0].tag.d.get("Title") == ML("Film One") and fi[1][0].tag.d.get("Plot") == "m", "a movie still carries the [Movie] title and its plot")
 
+print("== media info for movies in a boxset")
+mv = dict(xbmc.MOVIES[0], streamdetails={"video": [{"codec": "hevc", "width": 3840, "height": 2160, "aspect": 1.78, "duration": 7200, "hdrtype": "hdr10"}],
+                                          "audio": [{"codec": "eac3", "channels": 6, "language": "eng"}, {"codec": "ac3", "channels": 2, "language": "fra"}],
+                                          "subtitle": [{"language": "eng"}]})
+real_movies = list(xbmc.MOVIES); xbmc.MOVIES[0] = mv
+store.save({"mi": box("Media Info", [F1])})
+mi = run("action=open&bid=mi")
+md = [i for i in mi if i[0].props.get("boxset_movie")][0][0].tag.d
+ok(md.get("VideoStreams") and md["VideoStreams"][0].height == 2160 and md["VideoStreams"][0].codec == "hevc" and md["VideoStreams"][0].hdrType == "hdr10", "a movie in a boxset carries its video stream (resolution, codec, HDR)")
+ok([a.channels for a in md["AudioStreams"]] == [6, 2] and md["AudioStreams"][1].language == "fra" and md["SubtitleStreams"][0].language == "eng", "...its audio streams and subtitle languages")
+xbmc.MOVIES[:] = real_movies
+store.save({"mi": box("Media Info", [F1])})
+ok(run("action=open&bid=mi") and True, "a movie with no stream details still lists fine")
+ok("streamdetails" in library.MOVIE_DETAIL, "the full movie record asks Kodi for the stream details")
+
 print("== next up (home row) and the play queue")
 xbmc.SEASONS = {1: [{"season": 1, "episode": 10, "watchedepisodes": 4, "art": {}}, {"season": 2, "episode": 6, "watchedepisodes": 0, "art": {}}],
                 2: [{"season": 1, "episode": 8, "watchedepisodes": 8, "art": {}}],
@@ -1294,7 +1309,16 @@ xdir = os.path.join(ROOT, "badge-skin")
 shutil.copytree(os.path.join(HERE, "fixtures", "xml"), xdir)
 ok(not skinpatch.has_badges(xdir), "no badges before patching")
 placed = skinpatch.patch_badges(xdir)
-ok(placed == 6 and skinpatch.has_badges(xdir), "badges placed over every poster image and every roomy list row (%d)" % placed)
+ok(placed == 9 and skinpatch.has_badges(xdir), "badges placed over every poster image and every roomy list row (%d)" % placed)
+bn = open(os.path.join(xdir, "View_501_Banner.xml"), encoding="utf-8").read()
+fa = open(os.path.join(xdir, "View_502_FanArt.xml"), encoding="utf-8").read()
+ok(bn.count('content="TvBoxsetsNameBadge"') == 2 and bn.count('content="TvBoxsetsMovieTag"') == 2 and bn.count('content="TvBoxsetsTileName"') == 2, "Banner view: boxset names, MOVIE tags and boxset-tile names are placed on both the normal and focused banners")
+ok(fa.count('content="TvBoxsetsNameBadge"') == 1 and 'name="width" value="1141"' in fa, "Fanart view: the label sits on the big picture (width worked out from the enclosing group)")
+ET.fromstring(bn.encode("utf-8")); ET.fromstring(fa.encode("utf-8"))
+wl = open(os.path.join(xdir, "View_55_WideList.xml"), encoding="utf-8").read()
+ok(wl.count('content="TvBoxsetsNameBadge"') == wl.count('content="TvBoxsetsRowBadge"') >= 1 and 'name="left" value="736"' in wl, "WideList rows also get the boxset-name label, right of the title and left of the year / rating (position worked out from the list width)")
+ok(open(os.path.join(xdir, "View_504_MediaList.xml"), encoding="utf-8").read().count('content="TvBoxsetsNameBadge"') == 0, "...but not the roomier media-info rows")
+ET.fromstring(wl.encode("utf-8"))
 ok(skinpatch.patch_badges(xdir) == 0, "patching twice places nothing more")
 ok('<include file="Includes_TvBoxsets.xml" />' in open(os.path.join(xdir, "Includes.xml"), encoding="utf-8").read(), "include file registered in Includes.xml")
 for f in os.listdir(xdir):
@@ -1346,9 +1370,11 @@ inc = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read(
 ok('name="TvBoxsetsTileName"' in inc and "ListItem.Property(boxset_tile)" in inc, "the include shows the boxset_tile property")
 ET.fromstring(inc.encode("utf-8"))
 ok(rb.find(".//centertop").text == "50%" and "DBID" in rb.find(".//texture").text, "row badge is vertically centred and uses the same per-item picture")
-text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v6", "tvboxsets-badge v1")
+text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v8", "tvboxsets-badge v1")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(text)
 ok(not skinpatch.has_badges(xdir), "a skin copy made with badge version 1 is not counted as current")
+open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(text.replace("tvboxsets-badge v1", "tvboxsets-badge v6"))
+ok(not skinpatch.has_badges(xdir), "a copy from 0.21.0-0.21.2 (before the Banner / List / Fanart labels) is out of date, so the Boxsets menu offers the skin update")
 skinpatch.patch_badges(xdir)
 ok(skinpatch.has_badges(xdir) and "TvBoxsetsRowBadge" in open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read(), "patching upgrades it in place (no duplicate badges)")
 ok(skinpatch.patch_badges(xdir) == 0 and rows("View_55_WideList.xml", "TvBoxsetsRowBadge") == [{"left": "70", "size": "28"}] * 2, "and a second run still places nothing more")
@@ -1485,7 +1511,7 @@ text = open(os.path.join(xdir, "View_51_Poster.xml"), encoding="utf-8", newline=
 text = text.replace("TvBoxsetsNameBadge", "TvBoxsetsBadge")
 with open(os.path.join(xdir, "View_51_Poster.xml"), "w", encoding="utf-8", newline="") as f:
     f.write(text)
-inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v6", "tvboxsets-badge v2")
+inc_text = open(os.path.join(xdir, "Includes_TvBoxsets.xml"), encoding="utf-8").read().replace("tvboxsets-badge v8", "tvboxsets-badge v2")
 open(os.path.join(xdir, "Includes_TvBoxsets.xml"), "w", encoding="utf-8").write(inc_text)
 ok(not skinpatch.has_badges(xdir), "a skin copy from the previous version (round badges on posters) counts as out of date")
 skinpatch.patch_badges(xdir)

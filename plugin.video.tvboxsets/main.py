@@ -523,6 +523,7 @@ def fill_tag(tag, d, title=None):
             pass
     if not ratings and d.get("rating"):
         put("setRating", d["rating"], float)
+    add_streams(tag, d.get("streamdetails"))
     actor = getattr(xbmc, "Actor", None)
     if actor and d.get("cast"):
         try:
@@ -530,6 +531,26 @@ def fill_tag(tag, d, title=None):
                          for c in d["cast"]])
         except Exception as exc:  # noqa: BLE001
             xbmc.log("[TV Boxsets] could not set cast ({!r})".format(exc), xbmc.LOGINFO)
+
+
+def add_streams(tag, details):
+    """Video, audio and subtitle streams, so the media info (resolution, codec, channels, languages)
+    shows for a movie in a boxset just as it does in the normal library."""
+    if not details:
+        return
+    try:
+        for v in details.get("video") or []:
+            tag.addVideoStream(xbmc.VideoStreamDetail(
+                int(v.get("width") or 0), int(v.get("height") or 0), float(v.get("aspect") or 0),
+                int(v.get("duration") or 0), v.get("codec") or "", v.get("stereomode") or "",
+                v.get("language") or "", v.get("hdrtype") or ""))
+        for a in details.get("audio") or []:
+            tag.addAudioStream(xbmc.AudioStreamDetail(
+                int(a.get("channels") or 0), a.get("codec") or "", a.get("language") or ""))
+        for s in details.get("subtitle") or []:
+            tag.addSubtitleStream(xbmc.SubtitleStreamDetail(s.get("language") or ""))
+    except Exception as exc:  # noqa: BLE001 - older Kodi without these classes: just no media info
+        xbmc.log("[TV Boxsets] could not set media info ({!r})".format(exc), xbmc.LOGINFO)
 
 
 def movie_label(title):

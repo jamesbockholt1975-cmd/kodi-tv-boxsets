@@ -22,6 +22,22 @@ class Actor:
         self.name, self.role, self.order, self.thumbnail = name, role, order, thumbnail
 
 
+class VideoStreamDetail:
+    def __init__(self, width=0, height=0, aspect=0.0, duration=0, codec="", stereoMode="", language="", hdrType=""):
+        self.width, self.height, self.aspect, self.duration, self.codec = width, height, aspect, duration, codec
+        self.stereoMode, self.language, self.hdrType = stereoMode, language, hdrType
+
+
+class AudioStreamDetail:
+    def __init__(self, channels=-1, codec="", language=""):
+        self.channels, self.codec, self.language = channels, codec, language
+
+
+class SubtitleStreamDetail:
+    def __init__(self, language=""):
+        self.language = language
+
+
 class Monitor:
     """Minimal Monitor: the service loop exits immediately in tests."""
 

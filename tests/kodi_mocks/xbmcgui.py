@@ -10,6 +10,8 @@ class _Tag:
     def __getattr__(self, name):
         if name.startswith("set"):
             return lambda *a, **k: self.d.__setitem__(name[3:], a[0] if a else None)
+        if name.startswith("add") and name.endswith("Stream"):
+            return lambda detail: self.d.setdefault(name[3:] + "s", []).append(detail)
         raise AttributeError(name)
 
 

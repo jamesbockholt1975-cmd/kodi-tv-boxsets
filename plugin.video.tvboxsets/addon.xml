@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.21.2" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.21.6" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.pil" optional="true"/>
@@ -87,7 +87,19 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.21.2 (alpha)
+    <news>v0.21.6 (alpha)
+- Fix: the WideList view now shows the boxset-name label in each row too (to the right of the title). Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.21.5 (alpha)
+- Fix: the Boxsets menu did not offer the skin update after 0.21.3, so the Banner / List / Fanart labels never reached existing skin copies. It does now: run Boxsets menu > "Update ... add the home widget and library badges" once
+
+v0.21.4 (alpha)
+- Fix: movies inside a boxset (and in its watch order) now carry their media info (video resolution, codec and HDR, audio codecs, channels and languages, subtitle languages), so the information page and skin flags show it like in the normal library
+
+v0.21.3 (alpha)
+- Fix: the Banner view now shows the boxset-name labels and the MOVIE tag, and the List and Fanart views show the boxset-name labels on their big picture. Needs the skin update once: Boxsets menu > "Update ... add the home widget and library badges"
+
+v0.21.2 (alpha)
 - Fix: the diagnostics report could say "Operating system: Busy"; it now shows the real system
 
 v0.21.1 (alpha)
