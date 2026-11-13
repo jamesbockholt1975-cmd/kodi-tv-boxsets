@@ -206,6 +206,26 @@ ok('version="6.1.0"' in open(cl + "/addon.xml").read(), "rebuilt from newer Estu
 ok("Property(id),tvboxsets" in open(cl + "/xml/Home.xml", encoding="utf-8").read(), "rebuilt skin has item + widget")
 ok("MY-CHANGE" in open("profile/addon_data/skin.estuary.boxsets/settings.xml").read(), "skin settings kept across rebuild")
 ok(not main.skin_outdated(), "no longer outdated")
+
+print("== skin: Estuary changed without a new version number (Kodi 22 RC1 -> RC2)")
+import skinupdate as _su  # noqa: E402
+ok(skinpatch.built_from(cl) == skinpatch.source_fingerprint("xbmc/addons/skin.estuary"), "the copy records which Estuary it was built from")
+ok(_su.notify_rebuild() is False, "no notice while the copy matches Estuary")
+with open("xbmc/addons/skin.estuary/xml/Home.xml", "a", encoding="utf-8") as f:
+    f.write("<!-- changed by a Kodi update -->\n")
+ok(skinpatch.addon_version("xbmc/addons/skin.estuary/addon.xml") == skinpatch.addon_version(cl + "/addon.xml") and main.skin_outdated(),
+   "changed Estuary files are detected even though the version number is the same")
+ok(any("rebuild" in l.lower() and "updated" in l.lower() for l, _ in main.menu_entries()), "...and the menu offers the rebuild")
+ok(_su.notify_rebuild() is True and _su.notify_rebuild() is False, "Kodi's start shows a notice about it, once")
+D.Q.clear(); D.Q.update({"yesno": [True, False]}); main.rebuild_skin()
+ok(not main.skin_outdated() and _su.notify_rebuild() is False, "after the rebuild the copy is current again")
+os.remove(cl + "/" + skinpatch.SOURCE_STAMP)
+ok(main.skin_outdated(), "a copy built by an older add-on version (no record) is offered a rebuild")
+D.Q.clear(); D.Q.update({"yesno": [True, False]}); main.rebuild_skin()
+ok(not main.skin_outdated(), "...and is current after it")
+skinpatch.patch_badges(cl + "/xml")
+ok(not main.skin_outdated(), "the add-on's own in-place skin updates don't count as an Estuary change")
+
 os.remove("xbmc/addons/skin.estuary/xml/Home.xml")  # break the source: the build must fail safely
 with open("xbmc/addons/skin.estuary/addon.xml", "w") as f:
     f.write('<addon id="skin.estuary" version="6.2.0" name="Estuary" provider-name="x"><requires/></addon>')

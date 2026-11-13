@@ -77,6 +77,7 @@ def run():
     store.publish_flags()
     if skinupdate.run():  # an add-on update changed what the skin copy needs: patch it once, automatically
         store.bump_reload()
+    skinupdate.notify_rebuild()  # Kodi itself changed Estuary: say so once (the Boxsets menu offers the rebuild)
     badges.sync_badges()
     if store.setting_bool("auto_tags", True):
         tagsync.sync(quiet=True)

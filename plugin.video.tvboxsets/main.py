@@ -1813,13 +1813,11 @@ def estuary_source():
 
 
 def skin_outdated():
-    """True if Estuary has been updated since the Boxsets copy was built."""
+    """True if Estuary has changed since the Boxsets copy was built (new version, or changed files)."""
     src = estuary_source()
     if not src or not skin_installed():
         return False
-    a = skinpatch.addon_version(os.path.join(src, "addon.xml"))
-    b = skinpatch.addon_version(os.path.join(skin_dir(), "addon.xml"))
-    return bool(a and b and a != b)
+    return skinpatch.source_changed(src, skin_dir())
 
 
 def seed_skin_settings():

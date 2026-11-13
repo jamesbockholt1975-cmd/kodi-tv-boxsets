@@ -5,6 +5,7 @@
 Pure Python (no Kodi imports) so it can be tested on its own.
 """
 
+import hashlib
 import os
 import re
 import shutil
@@ -594,9 +595,51 @@ def build_skin(src, dst):
         patch_widget(os.path.join(dst, "xml", "Home.xml"))
         patch_categories(os.path.join(dst, "xml", "Home.xml"))
         patch_badges(os.path.join(dst, "xml"))
+        _write(os.path.join(dst, SOURCE_STAMP), source_fingerprint(src) + "\n")
     except Exception:
         shutil.rmtree(dst, ignore_errors=True)
         raise
+
+
+# Which Estuary a copy was built from. Kodi can change Estuary's files without changing its version number
+# (22 RC1 -> RC2 did), so the version alone doesn't tell us that the copy is stale.
+SOURCE_STAMP = "tvboxsets-source.txt"
+_HASHED = (".xml", ".po", ".txt")
+
+
+def source_fingerprint(src):
+    """A short hash of a skin folder: every file's path and size, plus the contents of its text files."""
+    digest = hashlib.sha1()
+    for root, dirs, files in os.walk(src):
+        dirs.sort()
+        for name in sorted(files):
+            path = os.path.join(root, name)
+            rel = os.path.relpath(path, src).replace(os.sep, "/")
+            digest.update("{}:{}\n".format(rel, os.path.getsize(path)).encode("utf-8"))
+            if name.lower().endswith(_HASHED):
+                with open(path, "rb") as handle:
+                    digest.update(handle.read())
+    return digest.hexdigest()
+
+
+def built_from(dst):
+    """The fingerprint stored in a copy when it was built, or None for a copy from before this was recorded."""
+    try:
+        return _read(os.path.join(dst, SOURCE_STAMP)).strip() or None
+    except OSError:
+        return None
+
+
+def source_changed(src, dst):
+    """True if skin `src` is not the one the copy `dst` was built from (by version, or by its files)."""
+    a = addon_version(os.path.join(src, "addon.xml"))
+    b = addon_version(os.path.join(dst, "addon.xml"))
+    if a and b and a != b:
+        return True
+    try:
+        return built_from(dst) != source_fingerprint(src)
+    except OSError:
+        return False
 
 
 def addon_version(path):

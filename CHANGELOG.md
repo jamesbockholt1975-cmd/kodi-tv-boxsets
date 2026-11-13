@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.23.1 (alpha)
+- **Fixed: Estuary changes went unnoticed when its version number stayed the same.** Kodi 22 RC2 changed 11 of
+  Estuary's skin files but left Estuary at version 4.1.0, and the add-on only compared version numbers, so it
+  never offered to rebuild the Boxsets skin. The copy now records a fingerprint of the Estuary it was built from
+  (`tvboxsets-source.txt`), and the add-on compares that as well as the version. When they differ, Kodi's start
+  shows a one-time notice and the Boxsets menu offers "Estuary has been updated: rebuild the Boxsets skin".
+  The rebuild is still something you start yourself, because the skin folder can't be replaced safely while that
+  skin is in use. Copies built by earlier versions have no record, so they are offered one rebuild.
+- Checked against Kodi 22 RC2: the skin patch applies cleanly to RC2's Estuary (valid XML, same placements as
+  RC1, safe to run twice), and the Python and JSON-RPC changes in RC2 don't affect the add-on.
+- Tests: 619 checks.
+
 ## 0.23.0 (alpha)
 - **Check my boxsets.** New Boxsets menu entry. It scans all boxsets and reports: saved entries that are not in
   your library, the same library item listed twice, empty boxsets, smart boxsets that match nothing, watch order
