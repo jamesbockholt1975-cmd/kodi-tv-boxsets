@@ -96,11 +96,10 @@ def boxset_art(bs, items):
 
 
 def apply_progress(li, tag, total, watched, playcount=None):
-    """Episode counts + watched flag, the same properties Kodi sets on library shows.
+    """Episode counts + watched flag, the same properties Kodi sets on library shows and seasons.
 
-    Skins draw progress bars from either ListItem.Property(WatchedEpisodePercent) (Kodi's own property for
-    shows and seasons) or ListItem.PercentPlayed. The latter only comes from a resume point, so a part-watched
-    folder gets one of watched/total: it is never played from, so nothing resumes from it."""
+    Skins draw a show's progress from ListItem.Property(WatchedEpisodePercent). ListItem.PercentPlayed is for
+    playable items only (a movie's or episode's resume point), so folders deliberately don't get one."""
     li.setProperty("TotalEpisodes", str(total))
     li.setProperty("WatchedEpisodes", str(watched))
     li.setProperty("UnWatchedEpisodes", str(max(total - watched, 0)))
@@ -108,8 +107,6 @@ def apply_progress(li, tag, total, watched, playcount=None):
     li.setProperty("WatchedEpisodePercent", str(int(round(100.0 * watched / total)) if total else 0))
     done = bool(total) and watched >= total
     tag.setPlaycount(max(int(playcount or 0), 1) if done else 0)
-    if total and 0 < watched < total:
-        set_resume(tag, watched, total)
 
 
 def set_resume(tag, position, total):
@@ -237,7 +234,7 @@ def list_boxsets(widget=False, flt=None):
 # The home rows, offered as folders so a skin's menu editor (Skin Shortcuts and the like) can pick them as widgets.
 # Each path is exactly the one the Estuary (Boxsets) skin uses, including the reload part the service bumps.
 WIDGETS = (
-    ("Boxsets", "boxset", skinpatch.WIDGET_PATH),
+    ("TV Boxsets", "boxset", skinpatch.WIDGET_PATH),
     ("Continue watching (boxsets)", "continue", skinpatch.WIDGET_CONTINUE_PATH),
     ("Next up (watch order)", "next", skinpatch.WIDGET_NEXT_PATH),
 )

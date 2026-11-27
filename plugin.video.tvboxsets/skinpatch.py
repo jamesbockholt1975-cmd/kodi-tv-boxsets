@@ -39,8 +39,11 @@ def patch_addon_xml(path):
     _write(path, text)
 
 
+MENU_LABEL = "TV Boxsets"   # the main menu item and the first home row
+
+
 def patch_home_xml(path):
-    """Insert a 'Boxsets' item straight after the TV Shows main menu item."""
+    """Insert a 'TV Boxsets' item straight after the TV Shows main menu item."""
     text = _read(path)
 
     # Locate the existing TV Shows item (by its menu id, falling back to its target).
@@ -63,8 +66,8 @@ def patch_home_xml(path):
     new = re.sub(r"\s*<visible[^>]*>.*?</visible>", "", new, flags=re.S)
     new = re.sub(
         r"<label>.*?</label>",
-        "<label>Boxsets</label>\n"
-        "<onclick>ActivateWindow(Videos,{},return)</onclick>".format(PLUGIN_PATH),
+        "<label>{}</label>\n"
+        "<onclick>ActivateWindow(Videos,{},return)</onclick>".format(MENU_LABEL, PLUGIN_PATH),
         new, count=1, flags=re.S)
     new = re.sub(r'(<property name="menu_id">).*?(</property>)',
                  r"\g<1>$NUMBER[" + MENU_ID + r"]\g<2>", new, count=1, flags=re.S)
@@ -86,7 +89,7 @@ _RELOAD = "&reload=$INFO[Window(Home).Property({})]".format(RELOAD_PROPERTY)
 WIDGET_PATH = PLUGIN_PATH + "?action=widget" + _RELOAD
 WIDGET_CONTINUE_PATH = PLUGIN_PATH + "?action=widget&filter=in_progress" + _RELOAD
 WIDGET_NEXT_PATH = PLUGIN_PATH + "?action=widget&filter=next_up" + _RELOAD
-WIDGET_MARKER = "tvboxsets-widget v4"   # bump when the widget block changes
+WIDGET_MARKER = "tvboxsets-widget v5"   # bump when the widget block changes
 
 
 def has_widget(path):
@@ -125,7 +128,7 @@ def _widget_block(indent, nl):
         '\t\t<pagecontrol>{sb}</pagecontrol>',
         '\t\t<include content="WidgetListPoster">',
         '\t\t\t<param name="content_path" value="{path}"/>',
-        '\t\t\t<param name="widget_header" value="Boxsets"/>',
+        '\t\t\t<param name="widget_header" value="{label}"/>',
         '\t\t\t<param name="widget_target" value="videos"/>',
         '\t\t\t<param name="list_id" value="{lid}"/>',
         '\t\t</include>',
@@ -148,7 +151,7 @@ def _widget_block(indent, nl):
         '</control>',
     ]
     return nl.join(indent + ln.format(
-        mid=MENU_ID, wid=WIDGET_ID, marker=WIDGET_MARKER, gl=int(MENU_ID) + 1,
+        mid=MENU_ID, wid=WIDGET_ID, marker=WIDGET_MARKER, label=MENU_LABEL, gl=int(MENU_ID) + 1,
         sb=int(MENU_ID) + 10, lid=int(MENU_ID) + 100, lid2=int(MENU_ID) + 101, lid3=int(MENU_ID) + 102,
         npath=escape(WIDGET_NEXT_PATH, {'"': "&quot;"}),
         path=escape(WIDGET_PATH, {'"': "&quot;"}), cpath=escape(WIDGET_CONTINUE_PATH, {'"': "&quot;"}))
@@ -168,6 +171,7 @@ def patch_widget(path):
     if WIDGET_MARKER in text:
         return False  # already current
     nl = "\r\n" if "\r\n" in text else "\n"
+    text = _rename_menu_item(text)
 
     old = _group_span(text, MENU_ID)
     if old:  # upgrade an earlier version of our own block in place
@@ -182,6 +186,20 @@ def patch_widget(path):
     _, end, indent = tv
     _write(path, text[:end] + nl + _widget_block(indent, nl) + text[end:])
     return True
+
+
+def _rename_menu_item(text):
+    """Copies built before 0.24.1 call the main menu item "Boxsets": give it the current label."""
+    marker = '<property name="id">{}</property>'.format(WIDGET_ID)
+    pos = text.find(marker)
+    if pos == -1:
+        return text
+    start = text.rfind("<item", 0, pos)
+    end = text.find("</item>", pos)
+    if start == -1 or end == -1:
+        return text
+    item = re.sub(r"<label>[^<]*</label>", "<label>{}</label>".format(MENU_LABEL), text[start:end], count=1)
+    return text[:start] + item + text[end:]
 
 
 # --------------------------------------------------------------------------

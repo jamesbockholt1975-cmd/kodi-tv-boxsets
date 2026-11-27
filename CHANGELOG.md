@@ -7,15 +7,18 @@
   Estuary (Boxsets) skin uses, including the `reload=$INFO[...]` part, so they refresh after you watch something.
   The folder is hidden when you browse the add-on normally (the Videos window), so it doesn't clutter the boxsets.
   The folder can also be opened directly at `plugin://plugin.video.tvboxsets/?action=widgets`.
-- **Progress for skins' progress bars** (forum feedback, Arctic Zephyr: Martian). Boxset tiles, shows inside a boxset, crossover ranges in the watch
-  order and the Continue watching row now set Kodi's `WatchedEpisodePercent` and `NumEpisodes` properties, and a
-  part-watched one also has `ListItem.PercentPlayed` (watched / total). Movies and episodes use their real
-  resume point from the library. Kodi only fills `PercentPlayed` from a resume point, so a folder gets one; it is
-  never played from, so nothing resumes from it.
+- **Progress for skins' progress bars** (forum feedback, Arctic Zephyr: Martian). Boxset tiles, shows inside a
+  boxset, crossover ranges in the watch order and the Continue watching row now set Kodi's `WatchedEpisodePercent`
+  and `NumEpisodes` properties, the same ones Kodi sets on library TV shows. Movies and episodes have their real
+  resume point from the library (`ListItem.PercentPlayed`). Folders deliberately have no `PercentPlayed`, which
+  is for playable items only (as the skin author pointed out).
 - **Play count and last played.** Movies and episodes show their real play count and last-played date; finished
   shows their real play count; boxset tiles the most recent last-played date of their items
   (`ListItem.PlayCount`, `ListItem.LastPlayed`).
-- Tests: 632 checks.
+- **"TV Boxsets" on the home screen.** The Estuary (Boxsets) main menu item and the first home row were called
+  "Boxsets"; they now use the add-on's name, "TV Boxsets". Existing skin copies are renamed automatically when
+  Kodi starts (home widget patch version 5).
+- Tests: 633 checks.
 
 ## 0.23.1 (alpha)
 - **Fixed: Estuary changes went unnoticed when its version number stayed the same.** Kodi 22 RC2 changed 11 of

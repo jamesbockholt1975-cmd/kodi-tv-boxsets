@@ -188,7 +188,7 @@ import xml.etree.ElementTree as ET, collections  # noqa: E402
 tree = ET.parse(cl + "/xml/Home.xml")
 ids = [e.get("id") for e in tree.iter("control") if e.get("id")]
 ok(not [i for i, c in collections.Counter(ids).items() if c > 1], "patched Home.xml is well-formed with no duplicate control ids")
-ok(sum(1 for e in tree.iter("item") if (e.findtext("label") or "").strip() == "Boxsets") == 1, "exactly one Boxsets menu item")
+ok(sum(1 for e in tree.iter("item") if (e.findtext("label") or "").strip() == "TV Boxsets") == 1, "exactly one TV Boxsets menu item")
 ok(skinpatch.patch_widget(cl + "/xml/Home.xml") is False, "patching twice is a no-op")
 
 print("== skin: outdated detection + rebuild")
@@ -525,14 +525,20 @@ rows = [i.find('param[@name="content_path"]').get("value") for i in groups[0].fi
 ok(len(groups) == 1 and rows == [skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH, skinpatch.WIDGET_NEXT_PATH],
    "exactly one group, three rows (Boxsets, Continue watching, Next up); & correctly escaped and values read back unchanged")
 ok(all("reload=$INFO[Window(Home).Property(tvboxsets_reload)]" in r for r in rows), "both rows carry the reload value")
+skinpatch.patch_home_xml("oldhome/Home.xml")  # the menu item too, as an older copy would have it
 # simulate the previous (v2) block: older marker, no reload value
 text = open("oldhome/Home.xml", encoding="utf-8", newline="").read()
-text = text.replace("tvboxsets-widget v4", "tvboxsets-widget v2").replace("&amp;reload=$INFO[Window(Home).Property(tvboxsets_reload)]", "")
+had_menu = "<label>TV Boxsets</label>" in text
+text = text.replace("<label>TV Boxsets</label>", "<label>Boxsets</label>").replace('value="TV Boxsets"', 'value="Boxsets"')
+text = text.replace("tvboxsets-widget v5", "tvboxsets-widget v2").replace("&amp;reload=$INFO[Window(Home).Property(tvboxsets_reload)]", "")
 with open("oldhome/Home.xml", "w", encoding="utf-8", newline="") as f:
     f.write(text)
 ok(not skinpatch.has_widget("oldhome/Home.xml") and skinpatch.patch_widget("oldhome/Home.xml") is True, "a v2 block (no reload value) is upgraded to the current version")
 ok(sum(1 for e in ET.parse("oldhome/Home.xml").iter("control") if e.get("id") == "99000") == 1, "still exactly one widget group after upgrading from v2")
 ok(skinpatch.patch_widget("oldhome/Home.xml") is False, "upgrade is idempotent")
+nh = open("oldhome/Home.xml", encoding="utf-8").read()
+ok(had_menu and nh.count("<label>TV Boxsets</label>") == 1 and "<label>Boxsets</label>" not in nh and 'widget_header" value="TV Boxsets"' in nh,
+   "an older copy's \"Boxsets\" menu item and first row are renamed \"TV Boxsets\"")
 
 print("== diagnostics knows the new things")
 store.save({"m1": {"name": "Mixed", "shows": [{"title": "Film One", "year": 2012, "type": "movie"}], "rules": {"media": "tv", "genre": "Drama"}, "poster": "", "fanart": ""}})
@@ -1154,7 +1160,7 @@ store.save({"pp": box("Percent", [A, B]), "pd": box("AllDone", [B])})
 tiles = {t[0].label: t[0] for t in run("")}
 pt = tiles["Percent"]
 ok(pt.props.get("WatchedEpisodePercent") == "67" and pt.props.get("NumEpisodes") == "18", "a boxset tile has Kodi's WatchedEpisodePercent (12 of 18 = 67) and NumEpisodes")
-ok(pt.tag.d.get("ResumePoint") == 12.0, "...and a part-watched boxset gives skins a ListItem.PercentPlayed (resume point 12 of 18)")
+ok("ResumePoint" not in pt.tag.d, "...but no resume point: ListItem.PercentPlayed is for movies and episodes only")
 ok(pt.tag.d.get("LastPlayed") == "2026-11-20 20:00:00", "...and the most recent last-played date of its items")
 dt = tiles["AllDone"]
 ok(dt.props.get("WatchedEpisodePercent") == "100" and "ResumePoint" not in dt.tag.d and dt.tag.d.get("Playcount") == 1,
@@ -1163,7 +1169,7 @@ store.save({"pq": box("Inside", [A, B]) })
 d = store.load(); d["pq"]["shows"].append({"title": "Half Film", "year": 2019, "type": "movie"}); store.save(d)
 inside = {t[0].getVideoInfoTag().d.get("Title"): t[0] for t in run("action=open&bid=pq")}
 alpha = inside["Alpha"]
-ok(alpha.props.get("WatchedEpisodePercent") == "40" and alpha.tag.d.get("ResumePoint") == 4.0, "a show inside a boxset has its percentage and PercentPlayed (4 of 10)")
+ok(alpha.props.get("WatchedEpisodePercent") == "40" and "ResumePoint" not in alpha.tag.d, "a show inside a boxset has its percentage (4 of 10) and no resume point")
 ok(inside["Beta"].tag.d.get("Playcount") == 2 and inside["Beta"].props.get("WatchedEpisodePercent") == "100", "a finished show keeps its real play count")
 film = [li for title, li in inside.items() if "Half Film" in (title or "")][0]
 ok(film.tag.d.get("ResumePoint") == 1800.0 and film.tag.d.get("Playcount") == 3 and film.tag.d.get("LastPlayed") == "2026-11-25 21:00:00",
@@ -1181,7 +1187,7 @@ ok(not any(t[0].label == "Widgets" for t in run("action=widget")), "...but never
 xbmc.COND["Window.IsActive(videos)"] = True
 ws = run("action=widgets")
 ok([t[1] for t in ws] == [skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH, skinpatch.WIDGET_NEXT_PATH] and all(t[2] for t in ws),
-   "it holds the Boxsets, Continue watching and Next up rows, with the same paths (and reload part) the Boxsets skin uses")
+   "it holds the TV Boxsets, Continue watching and Next up rows, with the same paths (and reload part) the Boxsets skin uses")
 ok(all("$INFO[Window(Home).Property(" in t[1] for t in ws), "...so they refresh when you watch something, like the Boxsets skin's rows")
 ok(run("action=widget&filter=in_progress&reload=$INFO[Window(Home).Property(x)]") is not None, "the reload part is ignored when a row is opened")
 
