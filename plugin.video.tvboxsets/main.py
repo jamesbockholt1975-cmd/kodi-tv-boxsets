@@ -95,12 +95,38 @@ def boxset_art(bs, items):
     return art
 
 
-def apply_progress(li, tag, total, watched):
-    """Episode counts + watched flag, the same properties Kodi sets on library shows."""
+def apply_progress(li, tag, total, watched, playcount=None):
+    """Episode counts + watched flag, the same properties Kodi sets on library shows.
+
+    Skins draw progress bars from either ListItem.Property(WatchedEpisodePercent) (Kodi's own property for
+    shows and seasons) or ListItem.PercentPlayed. The latter only comes from a resume point, so a part-watched
+    folder gets one of watched/total: it is never played from, so nothing resumes from it."""
     li.setProperty("TotalEpisodes", str(total))
     li.setProperty("WatchedEpisodes", str(watched))
     li.setProperty("UnWatchedEpisodes", str(max(total - watched, 0)))
-    tag.setPlaycount(1 if total and watched >= total else 0)
+    li.setProperty("NumEpisodes", str(total))
+    li.setProperty("WatchedEpisodePercent", str(int(round(100.0 * watched / total)) if total else 0))
+    done = bool(total) and watched >= total
+    tag.setPlaycount(max(int(playcount or 0), 1) if done else 0)
+    if total and 0 < watched < total:
+        set_resume(tag, watched, total)
+
+
+def set_resume(tag, position, total):
+    try:
+        tag.setResumePoint(float(position), float(total))
+    except Exception as exc:  # noqa: BLE001 - an older Kodi without it just shows no bar
+        xbmc.log("[TV Boxsets] could not set a resume point ({!r})".format(exc), xbmc.LOGINFO)
+
+
+def apply_played(tag, item):
+    """Real play count, last played and resume point of a library movie or episode."""
+    tag.setPlaycount(int(item.get("playcount") or 0))
+    if item.get("lastplayed"):
+        tag.setLastPlayed(item["lastplayed"])
+    resume = item.get("resume") or {}
+    if (resume.get("position") or 0) > 0 and (resume.get("total") or 0) > 0:
+        set_resume(tag, resume["position"], resume["total"])
 
 
 # --------------------------------------------------------------------------
@@ -176,6 +202,9 @@ def list_boxsets(widget=False, flt=None):
         lines.extend(i["title"] for _, i in found)
         tag.setPlot("\n".join(lines))
         apply_progress(li, tag, row["total"], row["watched"])
+        played = max((i.get("lastplayed") or "" for _, i in found), default="")
+        if played:
+            tag.setLastPlayed(played)
         li.addContextMenuItems([
             cm("Boxsets menu (create, backup, tools...)", action="menu"),
             cm("Play next unwatched episode", action="play_next", bid=bid),
@@ -198,7 +227,43 @@ def list_boxsets(widget=False, flt=None):
 
     if not rows and not widget:  # nothing to right-click yet, so offer a way in
         action_item("[B]+ Create your first boxset[/B]", menu=True, action="create")
+    if not widget and not flt and browsing_for_shortcut():
+        add_widgets_folder()
 
+    xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
+    xbmcplugin.endOfDirectory(HANDLE)
+
+
+# The home rows, offered as folders so a skin's menu editor (Skin Shortcuts and the like) can pick them as widgets.
+# Each path is exactly the one the Estuary (Boxsets) skin uses, including the reload part the service bumps.
+WIDGETS = (
+    ("Boxsets", "boxset", skinpatch.WIDGET_PATH),
+    ("Continue watching (boxsets)", "continue", skinpatch.WIDGET_CONTINUE_PATH),
+    ("Next up (watch order)", "next", skinpatch.WIDGET_NEXT_PATH),
+)
+
+
+def browsing_for_shortcut():
+    """True when the add-on is listed by something other than the Videos window: a skin's menu or widget editor
+    browsing add-ons. Normal browsing (Videos window) never sees the Widgets folder."""
+    return not xbmc.getCondVisibility("Window.IsActive(videos)")
+
+
+def add_widgets_folder():
+    li = xbmcgui.ListItem(label="Widgets")
+    li.setArt({"icon": "DefaultAddonVideo.png", "thumb": "DefaultAddonVideo.png"})
+    li.getVideoInfoTag().setPlot("The TV Boxsets home rows, to use as widgets in your skin's menu editor.")
+    xbmcplugin.addDirectoryItem(HANDLE, url(action="widgets"), li, True)
+
+
+def list_widgets():
+    """The widget folders: open one to see what it shows, or pick it in the skin's widget editor."""
+    xbmcplugin.setContent(HANDLE, "videos")
+    for label, _key, path in WIDGETS:
+        li = xbmcgui.ListItem(label=label)
+        li.setArt({"icon": "DefaultTVShows.png", "thumb": "DefaultTVShows.png"})
+        li.getVideoInfoTag().setPlot("Home row: " + label)
+        xbmcplugin.addDirectoryItem(HANDLE, path, li, True)
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.endOfDirectory(HANDLE)
 
@@ -304,11 +369,13 @@ def continue_watching(rows):
         if item.get("year"):
             tag.setYear(int(item["year"]))
         if is_movie:
-            tag.setPlaycount(0)
+            apply_played(tag, item)
             xbmcplugin.addDirectoryItem(
                 HANDLE, url(action="play_movie", id=item["movieid"]), li, False)
         else:
-            apply_progress(li, tag, total, watched)
+            apply_progress(li, tag, total, watched, item.get("playcount"))
+            if item.get("lastplayed"):
+                tag.setLastPlayed(item["lastplayed"])
             xbmcplugin.addDirectoryItem(
                 HANDLE, "videodb://tvshows/titles/{}/".format(item["tvshowid"]), li, True)
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_NONE)
@@ -336,7 +403,8 @@ def open_boxset(bid):
             tag = li.getVideoInfoTag()
             tag.setMediaType("tvshow")
             fill_tag(tag, item)
-            apply_progress(li, tag, item.get("episode", 0) or 0, item.get("watchedepisodes", 0) or 0)
+            apply_progress(li, tag, item.get("episode", 0) or 0, item.get("watchedepisodes", 0) or 0,
+                           item.get("playcount"))
             # Link straight into Kodi's own library node for the show, so the
             # seasons/episodes screens are the normal native ones.
             node = "videodb://tvshows/titles/{}/".format(item["tvshowid"])
@@ -353,7 +421,7 @@ def open_boxset(bid):
             tag = li.getVideoInfoTag()
             tag.setMediaType("movie")
             fill_tag(tag, item, title=movie_label(item["title"]))  # skins draw this one, not the list label
-            tag.setPlaycount(1 if (item.get("playcount") or 0) > 0 else 0)
+            apply_played(tag, item)
             xbmcplugin.addDirectoryItem(
                 HANDLE, url(action="play_movie", id=item["movieid"]), li, False)
             shown += 1
@@ -969,7 +1037,7 @@ def episode_item(item, ep, label=None):
     tag.setSeason(ep.get("season", 0))
     tag.setEpisode(ep.get("episode", 0))
     tag.setPlot(ep.get("plot", ""))
-    tag.setPlaycount(1 if (ep.get("playcount") or 0) > 0 else 0)
+    apply_played(tag, ep)
     return li
 
 
@@ -1956,6 +2024,8 @@ def router(paramstring):
         list_boxsets()
     elif action == "widget":
         list_boxsets(widget=True, flt=p.get("filter"))
+    elif action == "widgets":
+        list_widgets()
     elif action == "open":
         open_boxset(p["bid"])
     elif action == "watch":

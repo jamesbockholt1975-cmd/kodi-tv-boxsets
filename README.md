@@ -35,6 +35,7 @@ and widget for the default **Estuary** skin.
 - The Estuary (Boxsets) copy keeps itself up to date after add-on updates (setting, on by default).
 - Check my boxsets: finds missing, duplicate and empty entries and broken watch orders, and fixes the obvious ones.
 - Sort a boxset by release year.
+- Skin-friendly: a Widgets folder for skin menu editors (Skin Shortcuts), and progress, play count and last played for skins' progress bars and info labels.
 - Boxsets in other skins: Boxsets menu > Add boxsets to Kodi's library menu (Kodi library nodes built from the tags).
 - Share a watch order as a small file: export it from the watch order view, import someone else's from the Boxsets menu.
 - Automatic daily backups, export, import (merge or replace) and restore.

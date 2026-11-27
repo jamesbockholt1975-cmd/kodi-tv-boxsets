@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.0 (alpha)
+- **Widgets for skin menu editors** (forum feedback). Skins that use Skin Shortcuts already expose the Boxsets menu item. Now
+  the rows are pickable too: when a menu or widget editor browses the add-on, a **Widgets** folder lists
+  "Boxsets", "Continue watching (boxsets)" and "Next up (watch order)". Their paths are exactly the ones the
+  Estuary (Boxsets) skin uses, including the `reload=$INFO[...]` part, so they refresh after you watch something.
+  The folder is hidden when you browse the add-on normally (the Videos window), so it doesn't clutter the boxsets.
+  The folder can also be opened directly at `plugin://plugin.video.tvboxsets/?action=widgets`.
+- **Progress for skins' progress bars** (forum feedback, Arctic Zephyr: Martian). Boxset tiles, shows inside a boxset, crossover ranges in the watch
+  order and the Continue watching row now set Kodi's `WatchedEpisodePercent` and `NumEpisodes` properties, and a
+  part-watched one also has `ListItem.PercentPlayed` (watched / total). Movies and episodes use their real
+  resume point from the library. Kodi only fills `PercentPlayed` from a resume point, so a folder gets one; it is
+  never played from, so nothing resumes from it.
+- **Play count and last played.** Movies and episodes show their real play count and last-played date; finished
+  shows their real play count; boxset tiles the most recent last-played date of their items
+  (`ListItem.PlayCount`, `ListItem.LastPlayed`).
+- Tests: 632 checks.
+
 ## 0.23.1 (alpha)
 - **Fixed: Estuary changes went unnoticed when its version number stayed the same.** Kodi 22 RC2 changed 11 of
   Estuary's skin files but left Estuary at version 4.1.0, and the add-on only compared version numbers, so it

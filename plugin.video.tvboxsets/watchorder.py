@@ -100,7 +100,7 @@ def episodes_of(item, season):
     """Episodes of one season, in order."""
     resp = jsonrpc("VideoLibrary.GetEpisodes", {
         "tvshowid": item["tvshowid"], "season": season,
-        "properties": ["season", "episode", "title", "plot", "playcount", "art"]})
+        "properties": ["season", "episode", "title", "plot", "playcount", "art", "resume", "lastplayed"]})
     return sorted(resp.get("result", {}).get("episodes", []), key=lambda e: e.get("episode", 0))
 
 
@@ -260,7 +260,7 @@ def insert_runs(entries, base, season, spans, last_episode):
 def _unwatched_episodes(item, season=None):
     """Unwatched episodes of a show (real seasons only), or of one season, in order."""
     params = {"tvshowid": item["tvshowid"],
-              "properties": ["season", "episode", "title", "plot", "playcount", "art"],
+              "properties": ["season", "episode", "title", "plot", "playcount", "art", "resume", "lastplayed"],
               "filter": {"field": "playcount", "operator": "is", "value": "0"}}
     if season is not None:
         params["season"] = season

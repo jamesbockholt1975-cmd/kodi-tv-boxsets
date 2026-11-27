@@ -60,7 +60,12 @@ def executebuiltin(command):
     BUILTINS.append(command)
 
 
+COND = {"Window.IsActive(videos)": True}  # normal browsing; tests can change answers
+
+
 def getCondVisibility(condition):
+    if condition in COND:
+        return COND[condition]
     return "skin.estuary.boxsets" in ENABLED
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.23.1" provider-name="Frecklesnoot">
+<addon id="plugin.video.tvboxsets" name="TV Boxsets" version="0.24.0" provider-name="Frecklesnoot">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.pil" optional="true"/>
@@ -87,7 +87,12 @@
       <icon>icon.png</icon>
       <fanart>fanart.jpg</fanart>
     </assets>
-    <news>v0.23.1 (alpha)
+    <news>v0.24.0 (alpha)
+- New: for skins with a menu editor (Skin Shortcuts: Aeon Nox Silvo, Arctic Zephyr and others), the add-on now offers a "Widgets" folder with the Boxsets, Continue watching and Next up rows, so they can be picked as widgets. It only appears when a menu editor browses the add-on, not in normal browsing
+- New: progress for skins' progress bars. Boxsets, the shows inside them and the Continue watching row now have ListItem.PercentPlayed and Kodi's ListItem.Property(WatchedEpisodePercent) and NumEpisodes. Movies and episodes have their real resume point
+- New: real play counts and last-played dates (ListItem.PlayCount, ListItem.LastPlayed) on boxsets, shows, movies and episodes, for skins that show them
+
+v0.23.1 (alpha)
 - Fixed: the add-on did not notice when a Kodi update changed Estuary without changing Estuary's version number (Kodi 22 RC1 to RC2 did this), so it never offered to rebuild the Boxsets skin. It now compares Estuary's files, shows a one-time notice when Kodi starts, and offers "Estuary has been updated: rebuild the Boxsets skin" in the Boxsets menu
 - Checked against Kodi 22 RC2
 

@@ -1144,6 +1144,47 @@ pv2 = open(os.path.join(xdir, "View_54_InfoWall.xml"), encoding="utf-8").read()
 ok(pv2.count('content="TvBoxsetsProgress"') == 0, "the skin no longer draws our own progress pill (Kodi's own badge already shows it)")
 ok(open(os.path.join(xdir, "View_501_Banner.xml"), encoding="utf-8").read().count('TvBoxsetsProgress"') == 0, "...but not on banners, which have their own title strip")
 
+print("== progress for skins: WatchedEpisodePercent, PercentPlayed, play count, last played")
+saved_movies = [dict(m) for m in xbmc.MOVIES]; saved_lib = [dict(s) for s in xbmc.LIB]
+xbmc.LIB[0].update({"lastplayed": "2026-11-20 20:00:00", "playcount": 0})
+xbmc.LIB[1].update({"lastplayed": "2026-10-01 20:00:00", "playcount": 2})
+xbmc.MOVIES[:] = [{"movieid": 30, "title": "Half Film", "year": 2019, "art": {}, "plot": "", "genre": [], "studio": [], "tag": [],
+                   "playcount": 3, "lastplayed": "2026-11-25 21:00:00", "resume": {"position": 1800.0, "total": 6000.0}}]
+store.save({"pp": box("Percent", [A, B]), "pd": box("AllDone", [B])})
+tiles = {t[0].label: t[0] for t in run("")}
+pt = tiles["Percent"]
+ok(pt.props.get("WatchedEpisodePercent") == "67" and pt.props.get("NumEpisodes") == "18", "a boxset tile has Kodi's WatchedEpisodePercent (12 of 18 = 67) and NumEpisodes")
+ok(pt.tag.d.get("ResumePoint") == 12.0, "...and a part-watched boxset gives skins a ListItem.PercentPlayed (resume point 12 of 18)")
+ok(pt.tag.d.get("LastPlayed") == "2026-11-20 20:00:00", "...and the most recent last-played date of its items")
+dt = tiles["AllDone"]
+ok(dt.props.get("WatchedEpisodePercent") == "100" and "ResumePoint" not in dt.tag.d and dt.tag.d.get("Playcount") == 1,
+   "a finished boxset: 100%, no resume point, marked watched")
+store.save({"pq": box("Inside", [A, B]) })
+d = store.load(); d["pq"]["shows"].append({"title": "Half Film", "year": 2019, "type": "movie"}); store.save(d)
+inside = {t[0].getVideoInfoTag().d.get("Title"): t[0] for t in run("action=open&bid=pq")}
+alpha = inside["Alpha"]
+ok(alpha.props.get("WatchedEpisodePercent") == "40" and alpha.tag.d.get("ResumePoint") == 4.0, "a show inside a boxset has its percentage and PercentPlayed (4 of 10)")
+ok(inside["Beta"].tag.d.get("Playcount") == 2 and inside["Beta"].props.get("WatchedEpisodePercent") == "100", "a finished show keeps its real play count")
+film = [li for title, li in inside.items() if "Half Film" in (title or "")][0]
+ok(film.tag.d.get("ResumePoint") == 1800.0 and film.tag.d.get("Playcount") == 3 and film.tag.d.get("LastPlayed") == "2026-11-25 21:00:00",
+   "a movie inside a boxset has its real resume point, play count and last played")
+xbmc.MOVIES[:] = saved_movies; xbmc.LIB[:] = saved_lib
+
+print("== widgets folder for Skin Shortcuts")
+store.save({"w1": box("Saga", [A])})
+ok(not any(t[0].label == "Widgets" for t in run("")), "browsing the add-on normally shows no Widgets folder")
+xbmc.COND["Window.IsActive(videos)"] = False
+root = run("")
+wf = [t for t in root if t[0].label == "Widgets"]
+ok(len(wf) == 1 and wf[0][2] is True and wf[0][1].endswith("action=widgets"), "a skin's menu editor browsing the add-on sees a Widgets folder")
+ok(not any(t[0].label == "Widgets" for t in run("action=widget")), "...but never inside the home row itself")
+xbmc.COND["Window.IsActive(videos)"] = True
+ws = run("action=widgets")
+ok([t[1] for t in ws] == [skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH, skinpatch.WIDGET_NEXT_PATH] and all(t[2] for t in ws),
+   "it holds the Boxsets, Continue watching and Next up rows, with the same paths (and reload part) the Boxsets skin uses")
+ok(all("$INFO[Window(Home).Property(" in t[1] for t in ws), "...so they refresh when you watch something, like the Boxsets skin's rows")
+ok(run("action=widget&filter=in_progress&reload=$INFO[Window(Home).Property(x)]") is not None, "the reload part is ignored when a row is opened")
+
 print("== check my boxsets")
 import healthcheck  # noqa: E402
 Z_ = {"title": "Zeta", "year": 1999}
