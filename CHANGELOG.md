@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.1 (alpha)
+- **"TV Boxsets" on the home screen.** The Estuary (Boxsets) main menu item and the first home row were called
+  "Boxsets"; they now use the add-on's name, "TV Boxsets". So is the first entry of the Widgets folder. Existing
+  skin copies are renamed automatically when Kodi starts (home widget patch version 5).
+- **Changed: no `ListItem.PercentPlayed` on boxsets and shows.** 0.24.0 gave part-watched boxsets and shows a
+  resume point so that `ListItem.PercentPlayed` had a value. A skin author pointed out that `PercentPlayed` is for
+  playable items (movies, episodes) only, and that skins use `ListItem.Property(WatchedEpisodePercent)` for shows.
+  Boxsets and shows now behave like Kodi's own library TV shows: `WatchedEpisodePercent` and `NumEpisodes`, no
+  resume point. Movies and episodes keep their real resume point. In Estuary (Boxsets) this removes the thin
+  progress bar under boxset and show tiles; the "watched / total" badge stays.
+- Tests: 633 checks.
+
 ## 0.24.0 (alpha)
 - **Widgets for skin menu editors** (forum feedback). Skins that use Skin Shortcuts already expose the Boxsets menu item. Now
   the rows are pickable too: when a menu or widget editor browses the add-on, a **Widgets** folder lists
@@ -7,18 +19,15 @@
   Estuary (Boxsets) skin uses, including the `reload=$INFO[...]` part, so they refresh after you watch something.
   The folder is hidden when you browse the add-on normally (the Videos window), so it doesn't clutter the boxsets.
   The folder can also be opened directly at `plugin://plugin.video.tvboxsets/?action=widgets`.
-- **Progress for skins' progress bars** (forum feedback, Arctic Zephyr: Martian). Boxset tiles, shows inside a
-  boxset, crossover ranges in the watch order and the Continue watching row now set Kodi's `WatchedEpisodePercent`
-  and `NumEpisodes` properties, the same ones Kodi sets on library TV shows. Movies and episodes have their real
-  resume point from the library (`ListItem.PercentPlayed`). Folders deliberately have no `PercentPlayed`, which
-  is for playable items only (as the skin author pointed out).
+- **Progress for skins' progress bars** (forum feedback, Arctic Zephyr: Martian). Boxset tiles, shows inside a boxset, crossover ranges in the watch
+  order and the Continue watching row now set Kodi's `WatchedEpisodePercent` and `NumEpisodes` properties, and a
+  part-watched one also has `ListItem.PercentPlayed` (watched / total). Movies and episodes use their real
+  resume point from the library. Kodi only fills `PercentPlayed` from a resume point, so a folder gets one; it is
+  never played from, so nothing resumes from it.
 - **Play count and last played.** Movies and episodes show their real play count and last-played date; finished
   shows their real play count; boxset tiles the most recent last-played date of their items
   (`ListItem.PlayCount`, `ListItem.LastPlayed`).
-- **"TV Boxsets" on the home screen.** The Estuary (Boxsets) main menu item and the first home row were called
-  "Boxsets"; they now use the add-on's name, "TV Boxsets". Existing skin copies are renamed automatically when
-  Kodi starts (home widget patch version 5).
-- Tests: 633 checks.
+- Tests: 632 checks.
 
 ## 0.23.1 (alpha)
 - **Fixed: Estuary changes went unnoticed when its version number stayed the same.** Kodi 22 RC2 changed 11 of
