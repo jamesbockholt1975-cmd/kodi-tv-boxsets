@@ -1191,6 +1191,99 @@ ok([t[1] for t in ws] == [skinpatch.WIDGET_PATH, skinpatch.WIDGET_CONTINUE_PATH,
 ok(all("$INFO[Window(Home).Property(" in t[1] for t in ws), "...so they refresh when you watch something, like the Boxsets skin's rows")
 ok(run("action=widget&filter=in_progress&reload=$INFO[Window(Home).Property(x)]") is not None, "the reload part is ignored when a row is opened")
 
+print("== Kodi smart playlists as boxsets")
+import playlists, xbmcvfs, healthcheck as _hc, libnodes as _ln  # noqa: E402
+saved_lib_pl = [dict(s) for s in xbmc.LIB]; saved_movies_pl = [dict(m) for m in xbmc.MOVIES]
+xbmc.LIB[:] = [{"tvshowid": 1, "title": "Alpha", "year": 2010, "art": {}, "episode": 10, "watchedepisodes": 4, "genre": [], "studio": [], "tag": []},
+               {"tvshowid": 2, "title": "Beta", "year": 2015, "art": {}, "episode": 8, "watchedepisodes": 8, "genre": [], "studio": [], "tag": []},
+               {"tvshowid": 3, "title": "Gamma", "year": 2020, "art": {}, "episode": 5, "watchedepisodes": 0, "genre": [], "studio": [], "tag": []}]
+xbmc.MOVIES[:] = [{"movieid": 7, "title": "Film Seven", "year": 2007, "art": {}, "playcount": 0, "genre": [], "studio": [], "tag": []}]
+pdir = xbmcvfs.translatePath(playlists.VIDEO_DIR); os.makedirs(pdir, exist_ok=True)
+def xsp(fname, kind, name=None):
+    body = '<?xml version="1.0" encoding="UTF-8"?>\n<smartplaylist type="{}">{}<match>all</match></smartplaylist>'.format(
+        kind, "<name>{}</name>".format(name) if name else "")
+    with open(os.path.join(pdir, fname), "w", encoding="utf-8") as f:
+        f.write(body)
+xsp("crime.xsp", "tvshows", "Crime Shows"); xsp("films.xsp", "movies", "Old Films"); xsp("eps.xsp", "episodes")
+xsp("songs.xsp", "songs", "Songs"); xsp("mv.xsp", "musicvideos", "Clips")
+with open(os.path.join(pdir, "broken.xsp"), "w") as f:
+    f.write("<smartplaylist type=")
+with open(os.path.join(pdir, "notes.txt"), "w") as f:
+    f.write("x")
+P = playlists.VIDEO_DIR
+xbmc.PLAYLISTS.clear(); xbmc.PLAYLISTS.update({
+    P + "crime.xsp": [{"type": "tvshow", "id": 1, "label": "Alpha", "title": "Alpha", "year": 2010},
+                      {"type": "tvshow", "id": 3, "label": "Gamma", "title": "Gamma", "year": 2020},
+                      {"type": "unknown", "label": "Drama", "file": "videodb://x/", "filetype": "directory"}],
+    P + "films.xsp": [{"type": "movie", "id": 7, "label": "Film Seven", "title": "Film Seven", "year": 2007}],
+    P + "eps.xsp": [{"type": "episode", "id": 101, "label": "1x01", "title": "Pilot", "tvshowid": 2},
+                    {"type": "episode", "id": 102, "label": "1x02", "title": "Two", "tvshowid": 2},
+                    {"type": "episode", "id": 103, "label": "1x01", "title": "Start", "tvshowid": 3}],
+})
+found = playlists.available()
+ok([p["name"] for p in found] == ["Crime Shows", "eps", "Old Films"], "lists video smart playlists A to Z (name from the file, else the file name); songs, music videos and broken files are left out")
+ok({p["name"]: p["type"] for p in found} == {"Crime Shows": "tvshows", "eps": "episodes", "Old Films": "movies"}, "...with their type")
+
+store.save({})
+runq("action=create_playlist", select=[0], input=["Crime"])
+data = store.load(); cb = store.find_by_name(data, "Crime")
+ok(cb and data[cb]["playlist"] == {"path": P + "crime.xsp", "name": "Crime Shows", "type": "tvshows"}, "create a boxset from a smart playlist (the name can be changed)")
+lib = library.Library()
+ok([i["title"] for _, i in library.ordered_entries(data[cb], lib)] == ["Alpha", "Gamma"], "its contents are what Kodi's playlist matches (folders in the result are ignored)")
+ok(store.is_smart(data[cb]) and library.is_member(data[cb], {"title": "Alpha", "year": 2010}) and not library.is_member(data[cb], {"title": "Beta", "year": 2015}),
+   "it counts as a smart boxset, and membership follows the playlist")
+tiles = {t[0].label: t[0] for t in run("")}
+ok("Kodi smart playlist: Crime Shows" in tiles["Crime"].tag.d["Plot"] and tiles["Crime"].props["TotalEpisodes"] == "15", "the tile says which playlist it uses, with the matched shows' progress")
+xbmc.PLAYLISTS[P + "crime.xsp"].append({"type": "tvshow", "id": 2, "title": "Beta", "year": 2015})
+ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Beta", "Gamma"], "it is live: change the playlist in Kodi and the boxset follows")
+xbmc.PLAYLISTS[P + "crime.xsp"].pop()
+d = store.load(); library.set_member(d[cb], {"title": "Gamma", "year": 2020}, xbmc.LIB[2], False); store.save(d)
+ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha"] and store.load()[cb]["excluded"] == [{"title": "Gamma", "year": 2020}],
+   "removing a matched show leaves it out from then on, like a smart boxset")
+d = store.load(); store.add_refs(d[cb], [{"title": "Beta", "year": 2015}]); store.save(d)
+ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Beta"], "shows added by hand sit alongside the playlist's")
+
+rpc_before = len(xbmc.RPC_LOG); lib2 = library.Library()
+library.ordered_entries(store.load()[cb], lib2); library.ordered_entries(store.load()[cb], lib2)
+ok(sum(1 for m, _ in xbmc.RPC_LOG[rpc_before:] if m == "Files.GetDirectory") == 1, "Kodi is asked once per library snapshot, not once per lookup")
+
+runq("action=create_playlist", select=[2], input=["Films"])
+fb = store.find_by_name(store.load(), "Films")
+ok([(library.media_of(r), i["title"]) for r, i in library.ordered_entries(store.load()[fb], library.Library())] == [("movie", "Film Seven")], "a movie playlist gives a movie boxset")
+ok(_ln.kinds(store.load()[fb]) == ["movies"] and _ln.kinds(store.load()[cb]) == ["tvshows"], "library menu nodes use the playlist's type")
+runq("action=create_playlist", select=[1], input=["Episodes"])
+eb = store.find_by_name(store.load(), "Episodes")
+ok([i["title"] for _, i in library.ordered_entries(store.load()[eb], library.Library())] == ["Beta", "Gamma"], "an episode playlist adds the shows its episodes belong to, each once")
+runq("action=create_playlist", select=[0], input=["crime"])
+ok(sum(1 for b in store.load().values() if b["name"].lower() == "crime") == 1, "a name that is already used is refused")
+
+runq("action=playlist&bid=" + cb, select=[2])
+ok(store.load()[cb]["playlist"]["name"] == "Old Films", "a boxset's playlist can be changed from its right-click menu")
+runq("action=playlist&bid=" + cb, select=[3])
+ok("playlist" not in store.load()[cb] and "excluded" not in store.load()[cb] and store.load()[cb]["shows"] == [{"title": "Beta", "year": 2015}],
+   "...or dropped (the boxset keeps the shows added by hand)")
+
+store.save({"x": {"name": "Crime Shows", "shows": [], "poster": "", "fanart": ""}})
+runq("action=import_playlists", yesno=[True])
+names = sorted(b["name"] for b in store.load().values())
+ok(names == ["Crime Shows", "Old Films", "eps"], "import all: one boxset per playlist, skipping a name that is already used")
+ok(any(f.startswith("pre-import-") for f in os.listdir(store.BACKUP_DIR)), "...after saving a copy of the boxsets")
+runq("action=import_playlists", yesno=[True])
+ok(len(store.load()) == 3 and any("already has a boxset" in m for k, m in D.LOG if k == "ok"), "importing again adds nothing")
+
+ob = store.find_by_name(store.load(), "Old Films")
+del xbmc.PLAYLISTS[P + "films.xsp"]
+rep_ = _hc.scan(store.load(), library.Library())
+ok(rep_["playlist_missing"] == [("Old Films", "Old Films")] and "Old Films" in rep_["smart_empty"] and "can't be read" in _hc.text(rep_),
+   "Check my boxsets reports a smart playlist Kodi can't read (deleted or renamed)")
+ok(library.ordered_entries(store.load()[ob], library.Library()) == [], "...and the boxset is simply empty meanwhile")
+
+shutil.rmtree(pdir)
+runq("action=create_playlist")
+ok(any("No video smart playlists" in m for k, m in D.LOG if k == "ok"), "with no smart playlists it explains how to make one")
+ok(any("Kodi smart playlist" in l for l, _ in main.menu_entries()), "the Boxsets menu offers it")
+xbmc.PLAYLISTS.clear(); xbmc.LIB[:] = saved_lib_pl; xbmc.MOVIES[:] = saved_movies_pl
+
 print("== check my boxsets")
 import healthcheck  # noqa: E402
 Z_ = {"title": "Zeta", "year": 1999}

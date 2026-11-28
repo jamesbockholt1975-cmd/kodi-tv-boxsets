@@ -7,8 +7,8 @@ the boxset data in place and return how many things they changed, so the caller 
 """
 
 import watchorder
-from library import media_of, ordered_entries
-from store import show_key
+from library import media_of, ordered_entries, playlist_refs
+from store import is_smart, show_key
 
 
 def _label(ref):
@@ -34,14 +34,17 @@ def mostly_missing(report, data):
 def scan(data, lib):
     """A report dict describing what is wrong (or notable) in the boxsets."""
     report = {"boxsets": len(data), "items": 0, "missing": [], "duplicates": [], "empty": [],
-              "smart_empty": [], "watch_hidden": [], "watch_no_season": [], "shared": []}
+              "smart_empty": [], "playlist_missing": [], "watch_hidden": [], "watch_no_season": [], "shared": []}
     seen = {}
     for bid, bs in data.items():
         entries = ordered_entries(bs, lib)
         report["items"] += len(entries)
         found = [(r, i) for r, i in entries if i]
         if not entries:
-            (report["smart_empty"] if bs.get("rules") else report["empty"]).append(bs["name"])
+            (report["smart_empty"] if is_smart(bs) else report["empty"]).append(bs["name"])
+        playlist = bs.get("playlist")
+        if playlist and playlist_refs(playlist["path"], getattr(lib, "playlists", None)) is None:
+            report["playlist_missing"].append((bs["name"], playlist.get("name") or playlist["path"]))
         for ref in bs["shows"]:
             if not lib.find(ref):
                 report["missing"].append((bs["name"], _label(ref)))
@@ -71,7 +74,8 @@ def scan(data, lib):
 
 def problems(report):
     """How many fixable and reportable problems there are (shared items are only information)."""
-    return sum(len(report[k]) for k in ("missing", "duplicates", "empty", "smart_empty", "watch_hidden", "watch_no_season"))
+    return sum(len(report[k]) for k in ("missing", "duplicates", "empty", "smart_empty", "playlist_missing", "watch_hidden",
+                                         "watch_no_season"))
 
 
 def text(report):
@@ -89,6 +93,8 @@ def text(report):
     section("Duplicate entries (the same library item twice)", report["duplicates"], lambda r: "{}: {}".format(*r))
     section("Empty boxsets", report["empty"], lambda r: r)
     section("Smart boxsets that match nothing", report["smart_empty"], lambda r: r)
+    section("Kodi smart playlists that can't be read (deleted or renamed?)", report["playlist_missing"],
+            lambda r: "{}: {}".format(*r))
     section("Watch order entries for items no longer in the boxset", report["watch_hidden"], lambda r: "{}: {}".format(*r))
     section("Watch order seasons your library doesn't have", report["watch_no_season"], lambda r: "{}: {}".format(*r))
     if problems(report) == 0:

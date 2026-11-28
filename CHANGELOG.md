@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.25.0 (alpha)
+- **Boxsets from Kodi smart playlists** (forum request). A boxset can now be filled by one of Kodi's own video
+  smart playlists (`.xsp` files in `special://profile/playlists/video/`), so existing playlists can be brought over
+  without re-creating their rules:
+  - Boxsets menu > **Create a boxset from a Kodi smart playlist** (pick one, keep or change the name).
+  - Boxsets menu > **Import all Kodi smart playlists as boxsets**: one boxset per playlist, named after it. Playlists
+    that already have a boxset, or whose name is taken, are skipped. A copy of the boxsets is saved first
+    (`pre-import-...` in the backups folder).
+  - Right-click a boxset > **Kodi smart playlist...** to link one to an existing boxset, change it, or stop using it.
+  Kodi itself works out what the playlist matches (JSON-RPC `Files.GetDirectory`), so its rules, order and limit
+  are applied exactly as in Kodi, and the boxset follows any change to the playlist. Movie, TV show and episode
+  playlists can be used; an episode playlist adds the shows its episodes belong to. Linked boxsets work like smart
+  boxsets: items can also be added by hand, removing a matched item leaves it out from then on, and the add-on's
+  own smart rules can be used alongside. Check my boxsets reports a linked playlist that Kodi can't read (for
+  example one that was deleted or renamed). The diagnostics report counts these boxsets.
+- Tests: 657 checks.
+
 ## 0.24.1 (alpha)
 - **"TV Boxsets" on the home screen.** The Estuary (Boxsets) main menu item and the first home row were called
   "Boxsets"; they now use the add-on's name, "TV Boxsets". So is the first entry of the Widgets folder. Existing

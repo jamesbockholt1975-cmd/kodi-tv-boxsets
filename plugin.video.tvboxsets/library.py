@@ -73,6 +73,7 @@ class Library:
         self._movies = None
         self._tv_index = None
         self._movie_index = None
+        self.playlists = {}  # smart playlist path -> what it matched, for the life of this snapshot
 
     @property
     def movies(self):
@@ -107,16 +108,79 @@ class Library:
 
 
 def smart_matches(bs, lib):
-    """[(media, library_item)] that the boxset's smart rules select right now."""
-    rule_set = bs.get("rules")
-    if not rules.has_filters(rule_set):
-        return []
-    kind = rules.media(rule_set)
+    """[(media, library_item)] that the boxset's smart rules and its Kodi smart playlist select right now."""
     found = []
-    if kind in ("tv", "both"):
-        found += [("tvshow", s) for s in lib.shows if rules.matches(rule_set, s)]
-    if kind in ("movie", "both"):
-        found += [("movie", m) for m in lib.movies if rules.matches(rule_set, m)]
+    rule_set = bs.get("rules")
+    if rules.has_filters(rule_set):
+        kind = rules.media(rule_set)
+        if kind in ("tv", "both"):
+            found += [("tvshow", s) for s in lib.shows if rules.matches(rule_set, s)]
+        if kind in ("movie", "both"):
+            found += [("movie", m) for m in lib.movies if rules.matches(rule_set, m)]
+    if bs.get("playlist"):
+        seen = {show_key(ref_for(item, media)) for media, item in found}
+        for media, item in playlist_matches(bs, lib):
+            key = show_key(ref_for(item, media))
+            if key not in seen:
+                seen.add(key)
+                found.append((media, item))
+    return found
+
+
+def playlist_refs(path, cache=None):
+    """[(media, library id, ref)] that a Kodi smart playlist selects right now, or None if Kodi can't read it.
+
+    Kodi evaluates the playlist (its rules, order and limit). Episodes stand for the show they belong to."""
+    if cache is not None and path in cache:
+        return cache[path]
+    resp = jsonrpc("Files.GetDirectory", {"directory": path, "media": "video",
+                                          "properties": ["title", "year", "tvshowid"]})
+    if "result" not in resp or not isinstance(resp["result"], dict):
+        out = None
+    else:
+        out, seen, shows = [], set(), {}
+        for entry in resp["result"].get("files") or []:
+            kind = entry.get("type")
+            if kind in ("movie", "tvshow") and entry.get("id"):
+                key = (kind, entry["id"])
+                if key in seen:
+                    continue
+                ref = ref_for(dict(entry, title=entry.get("title") or entry.get("label") or ""), kind)
+            elif kind == "episode" and (entry.get("tvshowid") or 0) > 0:
+                key = ("tvshow", entry["tvshowid"])
+                if key in seen:
+                    continue
+                if key[1] not in shows:
+                    detail = jsonrpc("VideoLibrary.GetTVShowDetails",
+                                     {"tvshowid": key[1], "properties": ["title", "year"]})
+                    shows[key[1]] = detail.get("result", {}).get("tvshowdetails")
+                if not shows[key[1]]:
+                    continue
+                ref = ref_for(shows[key[1]], "tvshow")
+            else:
+                continue  # folders (a playlist grouped by genre etc.), music videos, unknown items
+            if not ref["title"]:
+                continue
+            seen.add(key)
+            out.append((key[0], key[1], ref))
+    if cache is not None:
+        cache[path] = out
+    return out
+
+
+def playlist_matches(bs, lib):
+    """[(media, library_item)] for the boxset's Kodi smart playlist (empty if it has none or Kodi can't read it)."""
+    playlist = bs.get("playlist")
+    if not playlist:
+        return []
+    refs = playlist_refs(playlist["path"], getattr(lib, "playlists", None)) or []
+    shows = {s.get("tvshowid"): s for s in lib.shows}
+    movies = {m.get("movieid"): m for m in lib.movies} if any(r[0] == "movie" for r in refs) else {}
+    found = []
+    for media, item_id, ref in refs:
+        item = (movies if media == "movie" else shows).get(item_id) or lib.find(ref)
+        if item:
+            found.append((media, item))
     return found
 
 
@@ -169,8 +233,12 @@ def is_member(bs, ref, item=None):
     key = show_key(ref)
     if any(show_key(r) == key for r in bs["shows"]):
         return True
+    if key in {show_key(r) for r in bs.get("excluded", [])}:
+        return False
+    if bs.get("playlist") and any(show_key(r) == key for _, _, r in playlist_refs(bs["playlist"]["path"]) or []):
+        return True
     rule_set = bs.get("rules")
-    if item and rules.has_filters(rule_set) and key not in {show_key(r) for r in bs.get("excluded", [])}:
+    if item and rules.has_filters(rule_set):
         wanted = rules.media(rule_set)
         if (media_of(ref) == "movie" and wanted in ("movie", "both")) or (
                 media_of(ref) == "tvshow" and wanted in ("tv", "both")):

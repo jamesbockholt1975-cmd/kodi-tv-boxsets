@@ -50,16 +50,18 @@ def _ensure_custom_tree():
 
 def kinds(bs):
     """Which library node types a boxset needs: tvshows and/or movies."""
+    out = set()
     if bs.get("rules"):
         value = rules_media(bs["rules"])
-        return {"tv": ["tvshows"], "movie": ["movies"]}.get(value, ["tvshows", "movies"])
-    out = []
+        out.update({"tv": ["tvshows"], "movie": ["movies"]}.get(value, ["tvshows", "movies"]))
+    if bs.get("playlist"):
+        out.update(["movies"] if bs["playlist"].get("type") == "movies" else ["tvshows"])
     refs = bs.get("shows", [])
     if any(r.get("type") != "movie" for r in refs):
-        out.append("tvshows")
+        out.add("tvshows")
     if any(r.get("type") == "movie" for r in refs):
-        out.append("movies")
-    return out
+        out.add("movies")
+    return [k for k in ("tvshows", "movies") if k in out]
 
 
 def _node(order, label, content, tag):

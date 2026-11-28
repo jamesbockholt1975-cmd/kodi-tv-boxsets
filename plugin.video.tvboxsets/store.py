@@ -76,6 +76,11 @@ def _read_raw():
         return None
 
 
+def is_smart(bs):
+    """True for a boxset that fills itself: smart rules, or a linked Kodi smart playlist."""
+    return bool(bs.get("rules") or bs.get("playlist"))
+
+
 def parse(obj):
     """Return the boxsets dict from either file format, or None if it isn't boxsets data."""
     if isinstance(obj, dict) and "format" in obj and "boxsets" in obj:
@@ -288,6 +293,8 @@ def merge(current, incoming):
                 target["watch"] = copy.deepcopy(bs["watch"])
             if bs.get("rules") and not target.get("rules"):
                 target["rules"] = copy.deepcopy(bs["rules"])
+            if bs.get("playlist") and not target.get("playlist"):
+                target["playlist"] = copy.deepcopy(bs["playlist"])
         else:
             new_id = bid if bid not in current else uuid.uuid4().hex[:8]
             fresh = copy.deepcopy(bs)

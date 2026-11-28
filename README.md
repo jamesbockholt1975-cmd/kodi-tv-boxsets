@@ -35,6 +35,7 @@ and widget for the default **Estuary** skin.
 - The Estuary (Boxsets) copy keeps itself up to date after add-on updates (setting, on by default).
 - Check my boxsets: finds missing, duplicate and empty entries and broken watch orders, and fixes the obvious ones.
 - Sort a boxset by release year.
+- Boxsets from Kodi's own smart playlists: link one to a boxset, or import them all at once.
 - Skin-friendly: a Widgets folder for skin menu editors (Skin Shortcuts), and progress, play count and last played for skins' progress bars and info labels.
 - Boxsets in other skins: Boxsets menu > Add boxsets to Kodi's library menu (Kodi library nodes built from the tags).
 - Share a watch order as a small file: export it from the watch order view, import someone else's from the Boxsets menu.
@@ -84,6 +85,7 @@ plugin.video.tvboxsets/   the add-on
   tagsync.py              writes/removes the prefixed boxset tags in the Kodi library
   ctxutil.py, ctx_*.py    small right-click scripts used while browsing inside a boxset
   diagnostics.py          builds the diagnostics report text (no Kodi imports)
+  playlists.py            Kodi's video smart playlists (.xsp) that a boxset can use
   rules.py                smart-boxset rule matching and descriptions (no Kodi imports)
   resources/              settings.xml and the English strings file
   icon.png, fanart.jpg    add-on artwork

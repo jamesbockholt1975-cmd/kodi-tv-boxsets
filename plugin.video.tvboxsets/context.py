@@ -48,7 +48,7 @@ def main():
 
     data = load()
     ids = sorted(data, key=lambda b: data[b]["name"].lower())
-    labels = ["{}{}".format(data[b]["name"], "  (smart)" if data[b].get("rules") else "") for b in ids]
+    labels = ["{}{}".format(data[b]["name"], "  (smart)" if store.is_smart(data[b]) else "") for b in ids]
     labels.append(NEW)
     preselect = [i for i, b in enumerate(ids) if is_member(data[b], ref, item)]
     chosen = xbmcgui.Dialog().multiselect("Boxsets for '{}'".format(ref["title"]), labels,

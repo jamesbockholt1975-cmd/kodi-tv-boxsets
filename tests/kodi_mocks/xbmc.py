@@ -14,6 +14,7 @@ MOVIES = []     # movies returned by VideoLibrary.GetMovies
 SETS = []       # movie sets returned by VideoLibrary.GetMovieSets / GetMovieSetDetails
 SEASONS = {}    # tvshowid -> seasons returned by VideoLibrary.GetSeasons
 EPISODES = {}   # tvshowid -> episodes returned by VideoLibrary.GetEpisodes
+PLAYLISTS = {}  # smart playlist path -> "files" returned by Files.GetDirectory (missing path: an error)
 TAGS = {}       # {"tvshow": [labels], "movie": [labels]} returned by VideoLibrary.GetTags
 
 
@@ -88,6 +89,10 @@ def executeJSONRPC(request):
     q = json.loads(request)
     method, params = q["method"], q.get("params", {})
     RPC_LOG.append((method, params))
+    if method == "Files.GetDirectory":
+        if params.get("directory") not in PLAYLISTS:
+            return json.dumps({"error": {"code": -32602, "message": "Invalid params."}})
+        return json.dumps({"result": {"files": PLAYLISTS[params["directory"]], "limits": {}}})
     if method == "VideoLibrary.GetTVShows":
         return json.dumps({"result": {"tvshows": _by_tag(LIB, params.get("filter"))}})
     if method == "VideoLibrary.GetMovies":

@@ -54,7 +54,8 @@ def build(info, log_lines, replacements=()):
             g("data_format") or "none yet", g("supported_format")),
         "Boxsets: {}".format(g("boxset_count", 0)),
         "Show entries in boxsets: {}".format(g("show_entries", 0)),
-        "Movie entries: {}; smart boxsets: {}".format(g("movie_entries", 0), g("smart_boxsets", 0)),
+        "Movie entries: {}; smart boxsets: {}; from Kodi smart playlists: {}".format(
+            g("movie_entries", 0), g("smart_boxsets", 0), g("playlist_boxsets", 0)),
         "Entries not found in the library: {}".format(g("missing_entries", 0)),
         "Automatic backups kept: {}".format(g("backup_count", 0)),
         "Settings: keep_backups={}, show_missing={}, debug_logging={}, boxset_sort={}, tag_prefix={!r}".format(

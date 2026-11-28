@@ -23,10 +23,11 @@ import tagsync
 import collage
 import healthcheck
 import libnodes
+import playlists
 import watchorder
 import wopack
 from library import (Library, full_details, is_member, item_stats, jsonrpc, media_of, ordered_entries,
-                     ref_for, set_member, smart_matches)
+                     playlist_matches, ref_for, set_member, smart_matches)
 from store import load, save, show_key
 
 BASE_URL = sys.argv[0]
@@ -193,6 +194,8 @@ def list_boxsets(widget=False, flt=None):
         lines = ["{}; {} of {} watched".format(counts, row["watched"], row["total"])]
         if bs.get("rules"):
             lines.append("Smart boxset: " + rules.describe(bs["rules"]))
+        if bs.get("playlist"):
+            lines.append("Kodi smart playlist: " + bs["playlist"].get("name", ""))
         if missing:
             lines.append("{} not currently in your library".format(missing))
         lines.append("")
@@ -214,6 +217,7 @@ def list_boxsets(widget=False, flt=None):
             cm("Add movies", action="add_movies", bid=bid),
             cm("Remove items", action="remove", bid=bid),
             cm("Smart rules (auto-add)...", action="rules", bid=bid),
+            cm("Kodi smart playlist...", action="playlist", bid=bid),
             cm("Change show order", action="reorder", bid=bid),
             cm("Set boxset artwork...", action="art", bid=bid),
             cm("Write to Kodi tags", action="tag_sync"),
@@ -514,7 +518,9 @@ def refresh_rows():
 def menu_entries():
     """[(label, function)] for the Boxsets menu: everything that used to be extra rows."""
     entries = [("Create new boxset", create_boxset),
-               ("Create new smart boxset", create_smart_boxset)]
+               ("Create new smart boxset", create_smart_boxset),
+               ("Create a boxset from a Kodi smart playlist", create_playlist_boxset),
+               ("Import all Kodi smart playlists as boxsets", import_playlists)]
     if not skin_installed():
         entries.append(("Add 'Boxsets' to the home screen (Estuary)", install_home_skin))
     else:
@@ -1537,7 +1543,8 @@ def edit_rules(bid):
             return
         elif pick == 10:
             bs.pop("rules", None)
-            bs.pop("excluded", None)
+            if not bs.get("playlist"):  # left-out items still matter while a smart playlist fills the boxset
+                bs.pop("excluded", None)
             save(data)
             notify("Rules removed")
             return
@@ -1559,6 +1566,100 @@ def create_smart_boxset():
         del data[bid]  # cancelled before any rules were saved
         save(data)
         notify("Cancelled: no rules were saved")
+
+
+# --------------------------------------------------------------------------
+# Kodi smart playlists as boxsets
+# --------------------------------------------------------------------------
+
+NO_PLAYLISTS = ("No video smart playlists were found.\n\nMake one in Kodi first: Videos > Playlists > "
+                "New smart playlist, with the type Movies, TV shows or Episodes.")
+
+
+def _linked(playlist):
+    return {"path": playlist["path"], "name": playlist["name"], "type": playlist["type"]}
+
+
+def link_playlist(bid):
+    """Fill a boxset from one of Kodi's smart playlists (or stop doing so)."""
+    data = load()
+    bs = data.get(bid)
+    if not bs:
+        return
+    found = playlists.available()
+    current = bs.get("playlist")
+    if not found and not current:
+        xbmcgui.Dialog().ok("TV Boxsets", NO_PLAYLISTS)
+        return
+    labels = [playlists.label(p) + ("  [current]" if current and p["path"] == current["path"] else "") for p in found]
+    if current:
+        labels.append("Stop using '{}'".format(current.get("name", "")))
+    pick = xbmcgui.Dialog().select("Kodi smart playlist for '{}'".format(bs["name"]), labels)
+    if pick < 0:
+        return
+    if pick == len(found):
+        bs.pop("playlist", None)
+        if not bs.get("rules"):
+            bs.pop("excluded", None)
+        save(data)
+        notify("No longer using a smart playlist")
+        return
+    bs["playlist"] = _linked(found[pick])
+    save(data)
+    notify("Linked: {} item(s) match right now".format(len(playlist_matches(bs, Library()))))
+
+
+def create_playlist_boxset():
+    found = playlists.available()
+    if not found:
+        xbmcgui.Dialog().ok("TV Boxsets", NO_PLAYLISTS)
+        return
+    pick = xbmcgui.Dialog().select("Choose a Kodi smart playlist", [playlists.label(p) for p in found])
+    if pick < 0:
+        return
+    chosen = found[pick]
+    name = xbmcgui.Dialog().input("Name of the new boxset", defaultt=chosen["name"],
+                                  type=xbmcgui.INPUT_ALPHANUM).strip()
+    if not name:
+        return
+    data = load()
+    if store.find_by_name(data, name):
+        notify("A boxset with that name already exists")
+        return
+    bid = store.new_boxset(data, name)
+    data[bid]["playlist"] = _linked(chosen)
+    save(data)
+    notify("Created '{}': {} item(s) match right now".format(name, len(playlist_matches(data[bid], Library()))))
+
+
+def import_playlists():
+    """One boxset per video smart playlist, named after it. Playlists already used, or names already taken, are skipped."""
+    found = playlists.available()
+    if not found:
+        xbmcgui.Dialog().ok("TV Boxsets", NO_PLAYLISTS)
+        return
+    data = load()
+    used = {bs["playlist"]["path"] for bs in data.values() if bs.get("playlist")}
+    todo, skipped = [], []
+    for p in found:
+        if p["path"] in used or store.find_by_name(data, p["name"]):
+            skipped.append(p["name"])
+        else:
+            todo.append(p)
+    if not todo:
+        xbmcgui.Dialog().ok("TV Boxsets", "Every smart playlist already has a boxset (or a boxset with its name).")
+        return
+    names = ", ".join(p["name"] for p in todo[:8]) + (" and {} more".format(len(todo) - 8) if len(todo) > 8 else "")
+    note = "\n\nSkipped (already used, or the name is taken): {}".format(", ".join(skipped)) if skipped else ""
+    if not xbmcgui.Dialog().yesno("Import smart playlists", "Create {} boxset(s), one for each smart playlist?\n\n{}{}"
+                                  .format(len(todo), names, note)):
+        return
+    store.backup_before_change("pre-import")
+    for p in todo:
+        bid = store.new_boxset(data, p["name"])
+        data[bid]["playlist"] = _linked(p)
+    save(data)
+    notify("Created {} boxset(s) from smart playlists".format(len(todo)))
 
 
 # --------------------------------------------------------------------------
@@ -1791,6 +1892,7 @@ def collect_info():
         "missing_entries": sum(1 for b in data.values() for r in b["shows"] if lib.find(r) is None),
         "movie_entries": sum(1 for b in data.values() for r in b["shows"] if r.get("type") == "movie"),
         "smart_boxsets": sum(1 for b in data.values() if b.get("rules")),
+        "playlist_boxsets": sum(1 for b in data.values() if b.get("playlist")),
         "setting_boxset_sort": store.setting_int("boxset_sort", 0),
         "setting_tag_prefix": store.setting_str("tag_prefix", "Boxset:"),
         "badge_rev": badges.current_rev(),
@@ -2035,6 +2137,12 @@ def router(paramstring):
             create_boxset()
         elif action == "create_smart":
             create_smart_boxset()
+        elif action == "playlist":
+            link_playlist(p["bid"])
+        elif action == "create_playlist":
+            create_playlist_boxset()
+        elif action == "import_playlists":
+            import_playlists()
         elif action == "add":
             add_items(p["bid"], "tvshow")
         elif action == "add_movies":

@@ -40,7 +40,7 @@ def main():
     matches = [r for r in bs["shows"] if show_key(r) == target]
     if not matches:  # fall back to title only, in case the year didn't line up
         matches = [r for r in same_kind if r["title"].lower() == title.lower()]
-    smart = bool(bs.get("rules"))
+    smart = store.is_smart(bs)
     if not matches and not smart:
         notify("Couldn't find '{}' in this boxset".format(title))
         return
