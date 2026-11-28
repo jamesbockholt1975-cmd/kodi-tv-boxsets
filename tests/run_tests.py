@@ -1235,13 +1235,26 @@ ok(store.is_smart(data[cb]) and library.is_member(data[cb], {"title": "Alpha", "
 tiles = {t[0].label: t[0] for t in run("")}
 ok("Kodi smart playlist: Crime Shows" in tiles["Crime"].tag.d["Plot"] and tiles["Crime"].props["TotalEpisodes"] == "15", "the tile says which playlist it uses, with the matched shows' progress")
 xbmc.PLAYLISTS[P + "crime.xsp"].append({"type": "tvshow", "id": 2, "title": "Beta", "year": 2015})
-ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Beta", "Gamma"], "it is live: change the playlist in Kodi and the boxset follows")
+ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Gamma", "Beta"], "it is live: change the playlist in Kodi and the boxset follows (in the playlist's order)")
 xbmc.PLAYLISTS[P + "crime.xsp"].pop()
+xbmc.PLAYLISTS[P + "crime.xsp"].reverse()  # the playlist sorts newest first
+ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Gamma", "Alpha"], "items keep the playlist's own order, not A to Z")
+D.Q.clear()
+runq("action=reorder&bid=" + cb, select=[1])
+ok(store.load()[cb].get("sort") == "az" and [i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Gamma"],
+   "Change show order offers A to Z instead")
+runq("action=reorder&bid=" + cb, select=[0])
+ok("sort" not in store.load()[cb] and [i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Gamma", "Alpha"],
+   "...and back to the playlist's order (listed first, for playlist boxsets only)")
+runq("action=reorder&bid=" + cb, select=[2])
+ok(store.load()[cb].get("sort") == "year", "the other orders shift down one place for playlist boxsets")
+d = store.load(); d[cb].pop("sort"); store.save(d)
+xbmc.PLAYLISTS[P + "crime.xsp"].reverse()
 d = store.load(); library.set_member(d[cb], {"title": "Gamma", "year": 2020}, xbmc.LIB[2], False); store.save(d)
 ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha"] and store.load()[cb]["excluded"] == [{"title": "Gamma", "year": 2020}],
    "removing a matched show leaves it out from then on, like a smart boxset")
 d = store.load(); store.add_refs(d[cb], [{"title": "Beta", "year": 2015}]); store.save(d)
-ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Beta"], "shows added by hand sit alongside the playlist's")
+ok([i["title"] for _, i in library.ordered_entries(store.load()[cb], library.Library())] == ["Alpha", "Beta"], "shows added by hand come after the playlist's")
 
 rpc_before = len(xbmc.RPC_LOG); lib2 = library.Library()
 library.ordered_entries(store.load()[cb], lib2); library.ordered_entries(store.load()[cb], lib2)

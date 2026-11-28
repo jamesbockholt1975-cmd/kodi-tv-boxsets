@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.25.1 (alpha)
+- **Smart playlist boxsets keep the playlist's order** (forum feedback). Boxsets linked to a Kodi smart playlist
+  were sorted A to Z. They now show their items in the order the playlist gives them (Kodi applies the
+  playlist's own sort), with anything added by hand after them, A to Z. This is the default for every playlist
+  boxset, including ones imported with 0.25.0. "Change show order" lists **Same order as the Kodi smart playlist**
+  first for these boxsets, and A to Z, release year and manual are still there.
+- Tests: 661 checks.
+
 ## 0.25.0 (alpha)
 - **Boxsets from Kodi smart playlists** (forum request). A boxset can now be filled by one of Kodi's own video
   smart playlists (`.xsp` files in `special://profile/playlists/video/`), so existing playlists can be brought over

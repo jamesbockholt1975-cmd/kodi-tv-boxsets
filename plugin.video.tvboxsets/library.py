@@ -187,7 +187,8 @@ def playlist_matches(bs, lib):
 def ordered_entries(bs, lib):
     """[(ref, library_item_or_None)] in display order: saved entries plus smart matches.
 
-    Order: A-Z by default, or by release year if the boxset's `sort` says so. With a manual order, the saved `order` list decides (anything
+    Order: A-Z by default (a boxset linked to a Kodi smart playlist: the playlist's own order), or by release
+    year or A-Z if the boxset's `sort` says so. With a manual order, the saved `order` list decides (anything
     not in it goes last, A-Z). Older boxsets that were ordered before `order` existed keep
     working: their saved entries come first in saved order, then smart matches A-Z.
     """
@@ -209,7 +210,15 @@ def ordered_entries(bs, lib):
     if bs.get("manual_order"):
         return manual + sorted(smart, key=by_title)
     entries = manual + smart
-    mode = bs.get("sort")
+    mode = bs.get("sort") or ("playlist" if bs.get("playlist") else None)
+    if mode == "playlist":  # the Kodi smart playlist's own order; anything else (added by hand) after it, A-Z
+        pos = {}
+        for media, item in playlist_matches(bs, lib):
+            pos.setdefault(show_key(ref_for(item, media)), len(pos))
+        listed = [e for e in entries if e[1] and show_key(ref_for(e[1], media_of(e[0]))) in pos]
+        listed.sort(key=lambda e: pos[show_key(ref_for(e[1], media_of(e[0])))])
+        keys = {id(e) for e in listed}
+        return listed + sorted([e for e in entries if id(e) not in keys], key=by_title)
     if mode in ("year", "year_desc"):  # release year; items with no year go last
         def year_of(e):
             return int((e[1] or {}).get("year") or e[0].get("year") or 0)
