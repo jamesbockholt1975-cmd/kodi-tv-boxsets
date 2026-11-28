@@ -115,12 +115,12 @@ ok(items[0][0].props["UnWatchedEpisodes"] == "6", "show unwatched count")
 ok(items[0][1].startswith("videodb://tvshows/titles/1/"), "links into the native library node")
 
 print("== manual order")
-runq("action=reorder&bid=b1", select=[3, 2, -1], numeric=["1"])
+runq("action=reorder&bid=b1", select=[4, 2, -1], numeric=["1"])
 ok(store.load()["b1"]["manual_order"] is True, "manual order saved")
 ok(run("action=open&bid=b1")[0][0].label == "Gamma", "Gamma moved to the top")
 runq("action=reorder&bid=b1", select=[0])
 ok(store.load()["b1"]["manual_order"] is False, "back to A-Z")
-runq("action=reorder&bid=b1", select=[3, 0, -1], numeric=["1"])
+runq("action=reorder&bid=b1", select=[4, 0, -1], numeric=["1"])
 
 print("== custom artwork")
 runq("action=art&bid=b1&kind=poster", select=[0], browseSingle=["C:/art/saga.jpg"])
@@ -648,7 +648,7 @@ store.save({"sm": dict(box("Smart", [B]), rules={"media": "tv", "genre": "Drama"
 ok(titles("sm") == ["Alpha", "Beta", "Gamma"], "smart boxset starts A-Z")
 ok(mv("sm", "Gamma", 2020, -1) != [] and titles("sm") == ["Alpha", "Gamma", "Beta"], "smart boxsets can be ordered too")
 ok([r["title"] for r in store.load()["sm"]["shows"]] == ["Beta"], "smart matches were not turned into saved entries")
-runq("action=reorder&bid=sm", select=[3, 1, -1], numeric=["1"])  # starts from the order shown: Alpha, Gamma, Beta
+runq("action=reorder&bid=sm", select=[4, 1, -1], numeric=["1"])  # starts from the order shown: Alpha, Gamma, Beta
 ok(titles("sm")[0] == "Gamma" and [r["title"] for r in store.load()["sm"]["shows"]] == ["Beta"], "the 'Change show order' dialog also works on smart boxsets")
 runq("action=reorder&bid=sm", select=[0])
 ok("order" not in store.load()["sm"] and titles("sm") == ["Alpha", "Beta", "Gamma"], "choosing A-Z again clears the manual order")
@@ -1132,7 +1132,7 @@ store.save({"yr": dict(store.load()["yr"], shows=store.load()["yr"]["shows"] + [
 ok(order_of("yr")[-1] == "Nodate", "items with no year always go last")
 runq("action=reorder&bid=yr", select=[0])
 ok("sort" not in store.load()["yr"] and order_of("yr")[0] == "Alpha", "A to Z puts it back")
-runq("action=reorder&bid=yr", select=[1]); runq("action=reorder&bid=yr", select=[3, 0, -1], numeric=["1"])
+runq("action=reorder&bid=yr", select=[1]); runq("action=reorder&bid=yr", select=[4, 0, -1], numeric=["1"])
 ok(store.load()["yr"]["manual_order"] is True, "Arrange manually still works after a year sort")
 
 print("== progress label on boxset tiles")
@@ -1290,6 +1290,44 @@ rep_ = _hc.scan(store.load(), library.Library())
 ok(rep_["playlist_missing"] == [("Old Films", "Old Films")] and "Old Films" in rep_["smart_empty"] and "can't be read" in _hc.text(rep_),
    "Check my boxsets reports a smart playlist Kodi can't read (deleted or renamed)")
 ok(library.ordered_entries(store.load()[ob], library.Library()) == [], "...and the boxset is simply empty meanwhile")
+
+print("== smart playlist order is asked for explicitly; sort by file name")
+def xsp_order(fname, order_xml):
+    with open(os.path.join(pdir, fname), "w", encoding="utf-8") as f:
+        f.write('<smartplaylist type="movies"><name>O</name><match>all</match>{}</smartplaylist>'.format(order_xml))
+def sent_sort(fname):
+    xbmc.PLAYLISTS[P + fname] = []
+    before = len(xbmc.RPC_LOG)
+    library.playlist_refs(P + fname)
+    calls = [prm for m, prm in xbmc.RPC_LOG[before:] if m == "Files.GetDirectory"]
+    return calls[0].get("sort")
+xsp_order("o1.xsp", '<order direction="descending">file</order>')
+ok(playlists.read(os.path.join(pdir, "o1.xsp"))["order"] == "file", "a playlist's order is read from its file")
+ok(sent_sort("o1.xsp") == {"method": "file", "order": "descending", "ignorearticle": False},
+   "Kodi is asked to sort the playlist by its own order (here: file name, descending)")
+xsp_order("o2.xsp", "")
+ok(sent_sort("o2.xsp") is None, "a playlist without an order is left as Kodi returns it")
+xsp_order("o3.xsp", "<order>sorttitle</order>")
+ok(sent_sort("o3.xsp") == {"method": "sorttitle", "order": "ascending", "ignorearticle": False}, "ascending is the default direction")
+xsp_order("o4.xsp", "<order>nonsense</order>")
+ok(sent_sort("o4.xsp") is None, "an order Kodi's JSON-RPC doesn't know is not sent (it would make the request fail)")
+for f in ("o1.xsp", "o2.xsp", "o3.xsp", "o4.xsp"):
+    os.remove(os.path.join(pdir, f)); xbmc.PLAYLISTS.pop(P + f, None)
+
+saved_mv = [dict(m) for m in xbmc.MOVIES]
+xbmc.MOVIES[:] = [
+    {"movieid": 21, "title": "Iron Man", "year": 2008, "art": {}, "playcount": 0, "file": "E:\\Sets e2\\Iron Man (2008)\\MCU150-Iron Man (2008).mkv"},
+    {"movieid": 22, "title": "Captain America", "year": 2011, "art": {}, "playcount": 0, "file": "F:\\Sets\\Captain America (2011)\\MCU9-Captain America (2011).mkv"},
+    {"movieid": 23, "title": "Agent Carter", "year": 2015, "art": {}, "playcount": 0, "file": "E:\\Sets e2\\Agent Carter (2015)\\MCU011-Marvel's Agent Carter (2015).mkv"},
+    {"movieid": 24, "title": "Nofile", "year": 2001, "art": {}, "playcount": 0}]
+store.save({"fs": {"name": "MCU", "shows": [{"title": t_, "year": y_, "type": "movie"} for t_, y_ in
+                                            [("Iron Man", 2008), ("Captain America", 2011), ("Agent Carter", 2015), ("Nofile", 2001)]],
+                   "poster": "", "fanart": ""}})
+runq("action=reorder&bid=fs", select=[3])
+ok(store.load()["fs"].get("sort") == "file", "Change show order offers Sort by file name")
+ok([i["title"] for _, i in library.ordered_entries(store.load()["fs"], library.Library())] == ["Captain America", "Agent Carter", "Iron Man", "Nofile"],
+   "sort by file name follows numbered prefixes (MCU9, MCU011, MCU150), ignores the folder, and puts items with no file last")
+xbmc.MOVIES[:] = saved_mv
 
 shutil.rmtree(pdir)
 runq("action=create_playlist")

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.25.2 (alpha)
+- **Fixed: smart playlist boxsets didn't always follow the playlist's order** (forum report). The add-on took the
+  items in the order Kodi listed them, but that isn't always the playlist's order. It now reads the playlist's
+  `<order>` (for example `file`, `sorttitle`, `year`) and direction from the `.xsp` file and asks Kodi to sort by
+  it (JSON-RPC `sort`), honouring Kodi's "ignore articles when sorting" setting, the same as Kodi's own lists.
+  Orders Kodi's JSON-RPC doesn't accept are left out, so they can't make the request fail.
+- **New: Sort by file name.** "Change show order" now offers **Sort by file name**: by the file name of a movie
+  (or the folder name of a TV show), ignoring the folders, with numbers in numeric order, so numbered files like
+  `MCU9-`, `MCU011-`, `MCU150-` play in sequence. This matches Kodi's own "File" sort. Items without a file go last.
+- Tests: 668 checks.
+
 ## 0.25.1 (alpha)
 - **Smart playlist boxsets keep the playlist's order** (forum feedback). Boxsets linked to a Kodi smart playlist
   were sorted A to Z. They now show their items in the order the playlist gives them (Kodi applies the

@@ -3,17 +3,19 @@
 """Library lookups shared by the add-on and its right-click (context menu) scripts."""
 
 import json
+import re
 
 import xbmc
 
+import playlists
 import rules
 import store
 from store import show_key
 
 TV_PROPS = ["title", "year", "art", "plot", "genre", "studio", "tag",
-            "episode", "watchedepisodes", "uniqueid", "rating", "dateadded", "lastplayed", "playcount"]
+            "episode", "watchedepisodes", "uniqueid", "rating", "dateadded", "lastplayed", "playcount", "file"]
 MOVIE_PROPS = ["title", "year", "art", "plot", "genre", "studio", "tag", "playcount", "uniqueid", "rating", "dateadded",
-               "lastplayed", "resume"]
+               "lastplayed", "resume", "file"]
 # Everything Kodi's own information page shows. Fetched one item at a time for the items on screen
 # (cast lists for a whole library would be far too heavy).
 TV_DETAIL = ["title", "originaltitle", "sorttitle", "year", "premiered", "plot", "genre", "studio", "mpaa",
@@ -24,7 +26,7 @@ MOVIE_DETAIL = ["title", "originaltitle", "sorttitle", "year", "premiered", "plo
                 "userrating", "runtime", "imdbnumber", "uniqueid", "trailer", "set", "playcount", "dateadded",
                 "lastplayed", "tag", "art", "top250", "streamdetails", "resume"]
 # Enough to match titles and evaluate smart rules, without artwork and plots (used for badges).
-LIGHT_PROPS = ["title", "year", "genre", "studio", "tag", "rating", "dateadded"]
+LIGHT_PROPS = ["title", "year", "genre", "studio", "tag", "rating", "dateadded", "file"]
 LIGHT_TV = LIGHT_PROPS + ["episode", "watchedepisodes"]  # what smart rules (unwatched) need
 LIGHT_MOVIE = LIGHT_PROPS + ["playcount"]
 
@@ -133,8 +135,14 @@ def playlist_refs(path, cache=None):
     Kodi evaluates the playlist (its rules, order and limit). Episodes stand for the show they belong to."""
     if cache is not None and path in cache:
         return cache[path]
-    resp = jsonrpc("Files.GetDirectory", {"directory": path, "media": "video",
-                                          "properties": ["title", "year", "tvshowid"]})
+    params = {"directory": path, "media": "video", "properties": ["title", "year", "tvshowid"]}
+    sort = playlists.sort_of(path)
+    if sort:
+        # Ask for the playlist's order explicitly, sorted the way Kodi's own lists are (ignoring "The" if set).
+        setting = jsonrpc("Settings.GetSettingValue", {"setting": "filelists.ignorethewhensorting"}).get("result")
+        sort["ignorearticle"] = bool(setting.get("value")) if isinstance(setting, dict) else False
+        params["sort"] = sort
+    resp = jsonrpc("Files.GetDirectory", params)
     if "result" not in resp or not isinstance(resp["result"], dict):
         out = None
     else:
@@ -219,6 +227,12 @@ def ordered_entries(bs, lib):
         listed.sort(key=lambda e: pos[show_key(ref_for(e[1], media_of(e[0])))])
         keys = {id(e) for e in listed}
         return listed + sorted([e for e in entries if id(e) not in keys], key=by_title)
+    if mode == "file":  # file (or show folder) name, numbers in order: "MCU9-" before "MCU10-"; no file name last
+        def file_key(e):
+            name = re.split(r"[\\/]", ((e[1] or {}).get("file") or "").rstrip("\\/"))[-1].lower()
+            return [(0, int(part), "") if part.isdigit() else (1, 0, part) for part in re.split(r"(\d+)", name) if part]
+        named = sorted([e for e in entries if file_key(e)], key=lambda e: (file_key(e), by_title(e)))
+        return named + sorted([e for e in entries if not file_key(e)], key=by_title)
     if mode in ("year", "year_desc"):  # release year; items with no year go last
         def year_of(e):
             return int((e[1] or {}).get("year") or e[0].get("year") or 0)

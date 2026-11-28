@@ -835,7 +835,8 @@ def reorder_shows(bid):
         notify("Add some shows first")
         return
     choices = [("az", "Sort A to Z (automatic)"), ("year", "Sort by release year, oldest first (automatic)"),
-               ("year_desc", "Sort by release year, newest first (automatic)"), ("manual", "Arrange manually")]
+               ("year_desc", "Sort by release year, newest first (automatic)"),
+               ("file", "Sort by file name (automatic)"), ("manual", "Arrange manually")]
     if bs.get("playlist"):
         choices.insert(0, ("playlist", "Same order as the Kodi smart playlist (automatic)"))
     pick = xbmcgui.Dialog().select("Order of '{}'".format(bs["name"]), [label for _, label in choices])

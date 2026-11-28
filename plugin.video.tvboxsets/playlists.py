@@ -27,7 +27,27 @@ def read(path):
     if root.tag != "smartplaylist":
         return None
     stem = os.path.splitext(os.path.basename(path))[0]
-    return {"name": (root.findtext("name") or "").strip() or stem, "type": (root.get("type") or "").strip().lower()}
+    order = root.find("order")
+    return {"name": (root.findtext("name") or "").strip() or stem, "type": (root.get("type") or "").strip().lower(),
+            "order": ((order.text if order is not None else "") or "").strip().lower(),
+            "direction": "descending" if order is not None and (order.get("direction") or "").lower() == "descending"
+            else "ascending"}
+
+
+# Sort methods Kodi's JSON-RPC accepts (List.Sort). A smart playlist's <order> uses the same names.
+JSONRPC_SORTS = {"label", "date", "size", "file", "path", "drivetype", "title", "track", "time", "artist", "album",
+                 "albumtype", "genre", "country", "year", "rating", "userrating", "votes", "top250", "programcount",
+                 "playlist", "episode", "season", "totalepisodes", "watchedepisodes", "tvshowstatus", "tvshowtitle",
+                 "sorttitle", "productioncode", "mpaa", "studio", "dateadded", "lastplayed", "playcount", "listeners",
+                 "bitrate", "random", "totaldiscs", "originaldate", "bpm", "originaltitle"}
+
+
+def sort_of(path):
+    """The playlist's own order as a JSON-RPC sort, or None (no order, unknown, or unreadable file)."""
+    info = read(xbmcvfs.translatePath(path))
+    if not info or info["order"] not in JSONRPC_SORTS:
+        return None
+    return {"method": info["order"], "order": info["direction"]}
 
 
 def available():
